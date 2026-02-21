@@ -5,6 +5,7 @@ import 'constants/app_colors.dart';
 import 'utils/app_theme.dart';
 import 'services/language_service.dart';
 import 'services/storage_service.dart';
+import 'services/theme_service.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_navigation.dart';
 import 'generated/app_localizations.dart';
@@ -17,15 +18,6 @@ import 'generated/app_localizations.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Set system UI overlay style for dark theme
-  SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.light,
-      systemNavigationBarColor: AppColors.background,
-      systemNavigationBarIconBrightness: Brightness.light,
-    ),
-  );
   
   // TODO: Uncomment when Firebase is configured
   // try {
@@ -47,32 +39,57 @@ class MyApp extends StatefulWidget {
     state?.setLocale(newLocale);
   }
 
+  static void setThemeMode(BuildContext context, ThemeMode mode) {
+    _MyAppState? state = context.findAncestorStateOfType<_MyAppState>();
+    state?.setThemeMode(mode);
+  }
+
   @override
   State<MyApp> createState() => _MyAppState();
 }
 
 class _MyAppState extends State<MyApp> {
   Locale _locale = const Locale('en');
+  ThemeMode _themeMode = ThemeMode.dark;
 
   @override
   void initState() {
     super.initState();
     _loadSavedLanguage();
+    _loadSavedTheme();
   }
 
   Future<void> _loadSavedLanguage() async {
     final locale = await LanguageService.getSelectedLanguage();
+    if (mounted) setState(() => _locale = locale);
+  }
+
+  Future<void> _loadSavedTheme() async {
+    final mode = await ThemeService.getSavedTheme();
     if (mounted) {
-      setState(() {
-        _locale = locale;
-      });
+      setState(() => _themeMode = mode);
+      _applySystemUiOverlay(mode);
     }
   }
 
   void setLocale(Locale locale) {
-    setState(() {
-      _locale = locale;
-    });
+    setState(() => _locale = locale);
+  }
+
+  void setThemeMode(ThemeMode mode) {
+    setState(() => _themeMode = mode);
+    ThemeService.saveTheme(mode);
+    _applySystemUiOverlay(mode);
+  }
+
+  void _applySystemUiOverlay(ThemeMode mode) {
+    final isDark = mode == ThemeMode.dark;
+    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+      systemNavigationBarColor: isDark ? AppColors.background : LightColors.background,
+      systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+    ));
   }
 
   @override
@@ -80,7 +97,9 @@ class _MyAppState extends State<MyApp> {
     return MaterialApp(
       title: 'Velox',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.darkTheme,
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: _themeMode,
       locale: _locale,
       localizationsDelegates: const [
         AppLocalizations.delegate,

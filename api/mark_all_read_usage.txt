@@ -1,0 +1,105 @@
+MARK ALL NOTIFICATIONS AS READ - SIMPLE USAGE
+==============================================
+
+NEW FEATURE ADDED: Mark all notifications as read with just customer_id!
+
+USAGE:
+------
+
+Simply add mark_all_read=1 to the GET request:
+
+  GET /api/notifications.php?customer_id=USER_ID&mark_all_read=1
+
+
+EXAMPLES:
+---------
+
+1. Using cURL:
+   curl "http://ruyadream.com/velox/api/notifications.php?customer_id=853&mark_all_read=1"
+
+2. Using Browser:
+   http://ruyadream.com/velox/api/notifications.php?customer_id=853&mark_all_read=1
+
+3. Using Flutter/Dart:
+   final response = await http.get(
+     Uri.parse('http://ruyadream.com/velox/api/notifications.php?customer_id=$userId&mark_all_read=1')
+   );
+
+4. Using JavaScript:
+   fetch('http://ruyadream.com/velox/api/notifications.php?customer_id=853&mark_all_read=1')
+     .then(res => res.json())
+     .then(data => console.log(data));
+
+
+RESPONSE:
+---------
+
+Success Response (200):
+{
+  "success": true,
+  "message": "All notifications marked as read.",
+  "data": {
+    "customer_id": 853,
+    "notifications_marked": 7
+  }
+}
+
+Error Response (500):
+{
+  "success": false,
+  "message": "Failed to mark notifications as read: [error details]"
+}
+
+
+TESTED:
+-------
+✅ Customer 853: Marked 7 notifications as read
+✅ Customer 1: Marked 3 notifications as read
+✅ unread_count becomes 0 after marking all as read
+
+
+FLUTTER EXAMPLE:
+----------------
+
+Future<void> markAllNotificationsAsRead(int customerId) async {
+  final url = 'http://ruyadream.com/velox/api/notifications.php?customer_id=$customerId&mark_all_read=1';
+  
+  final response = await http.get(Uri.parse(url));
+  
+  if (response.statusCode == 200) {
+    final data = json.decode(response.body);
+    print('Marked ${data['data']['notifications_marked']} notifications as read');
+    return true;
+  } else {
+    throw Exception('Failed to mark notifications as read');
+  }
+}
+
+
+ALTERNATIVE METHOD (Still Available):
+--------------------------------------
+
+You can also use the PUT method (original method):
+
+  PUT /api/notifications.php?customer_id=USER_ID
+  Body: {"mark_all_read": true}
+
+Both methods work the same way!
+
+
+COMPARISON:
+-----------
+
+NEW METHOD (GET):
+✅ Simpler - just add ?mark_all_read=1
+✅ No request body needed
+✅ Can use in browser directly
+✅ Perfect for quick actions
+
+OLD METHOD (PUT):
+✅ RESTful standard
+✅ Explicit action in body
+✅ Better for complex APIs
+
+Choose whichever method you prefer!
+

@@ -1,0 +1,118 @@
+CURRENCY RATES API - USAGE GUIDE
+==================================
+
+ENDPOINT: /api/currency_rates.php
+METHOD: GET
+
+DESCRIPTION:
+This API provides currency conversion rates for all supported currencies in the system.
+Each currency includes its name, symbol, code, and conversion rate.
+
+PARAMETERS:
+-----------
+1. search (optional) - Filter currencies by name or code
+
+EXAMPLES:
+---------
+
+1. GET ALL CURRENCY RATES:
+   curl "https://ruyadream.com/velox/api/currency_rates.php"
+
+2. SEARCH FOR SPECIFIC CURRENCY:
+   curl "https://ruyadream.com/velox/api/currency_rates.php?search=USD"
+   curl "https://ruyadream.com/velox/api/currency_rates.php?search=Dolar"
+
+RESPONSE STRUCTURE:
+-------------------
+{
+  "success": true,
+  "message": "Currency rates retrieved successfully.",
+  "data": {
+    "currencies": [
+      {
+        "id": 1,
+        "name": "Dolar",
+        "symbol": "$",
+        "code": "USD",
+        "conversion_rate": 1.00
+      },
+      {
+        "id": 2,
+        "name": "Lira",
+        "symbol": "₺",
+        "code": "TRY",
+        "conversion_rate": 41.00
+      },
+      {
+        "id": 3,
+        "name": "Drham",
+        "symbol": "AED",
+        "code": "AED",
+        "conversion_rate": 3.60
+      },
+      {
+        "id": 4,
+        "name": "Pound",
+        "symbol": "£",
+        "code": "GBP",
+        "conversion_rate": 0.68
+      },
+      {
+        "id": 5,
+        "name": "euro",
+        "symbol": "€",
+        "code": "EUR",
+        "conversion_rate": 0.80
+      }
+    ],
+    "count": 5,
+    "last_updated": "2025-10-18 14:30:00"
+  }
+}
+
+FIELD DESCRIPTIONS:
+-------------------
+- id: Unique identifier for the currency
+- name: Currency display name
+- symbol: Currency symbol (e.g., $, €, £, ₺)
+- code: ISO currency code (e.g., USD, EUR, GBP)
+- conversion_rate: Conversion rate relative to base currency (USD = 1.00)
+- count: Total number of currencies returned
+- last_updated: Timestamp when data was retrieved
+
+USE CASES:
+----------
+1. Display currency selector in order forms
+2. Calculate prices in different currencies
+3. Show currency conversion rates to users
+4. Auto-populate currency dropdown menus
+5. Convert between currencies for pricing
+
+FLUTTER INTEGRATION:
+--------------------
+See currency_rates_flutter_example.dart for complete implementation.
+
+ERROR RESPONSES:
+----------------
+1. Invalid method:
+   Status: 405
+   {
+     "success": false,
+     "message": "Method not allowed. Only GET requests are accepted."
+   }
+
+2. Database error:
+   Status: 500
+   {
+     "success": false,
+     "message": "Database error occurred: [error details]"
+   }
+
+NOTES:
+------
+- conversion_rate represents the exchange rate relative to USD (base currency = 1.00)
+- For example: USD conversion_rate = 1.00 (base), EUR conversion_rate = 0.80 means 1 USD = 0.80 EUR
+- To convert between currencies: convert to USD first, then to target currency
+- Formula: amount_in_target = (amount_in_source / source_rate) * target_rate
+- All rates are stored with decimal precision in the database
+

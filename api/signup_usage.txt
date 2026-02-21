@@ -1,0 +1,197 @@
+SIGNUP API - USAGE GUIDE
+========================
+
+ENDPOINT: /api/signup.php
+METHOD: POST
+
+DESCRIPTION:
+This API allows new users to create an account in the system. It handles user registration
+with proper validation, password hashing, and duplicate checking.
+
+REQUIRED FIELDS:
+----------------
+1. name (string) - User's full name (minimum 2 characters)
+2. phone (string) - User's phone number (minimum 10 digits)
+3. address (string) - User's address
+4. password (string) - User's password (minimum 6 characters)
+
+OPTIONAL FIELDS:
+----------------
+1. email (string) - User's email address (must be valid email format)
+2. instagram (string) - Instagram username/profile
+3. facebook (string) - Facebook username/profile
+
+VALIDATION RULES:
+-----------------
+- Name: Minimum 2 characters
+- Phone: Minimum 10 digits (automatically checks for duplicates)
+- Password: Minimum 6 characters (stored as plain text)
+- Email: Must be valid email format (if provided, checks for duplicates)
+- Address: Required, no specific format
+
+SECURITY FEATURES:
+------------------
+- Passwords are stored as plain text
+- SQL injection protection via mysqli_real_escape_string
+- Duplicate phone/email detection
+- Transaction-based insertion for data integrity
+- Never returns password in response
+
+DEFAULT VALUES:
+---------------
+- usertype: 1 (default user type)
+- is_active: 1 (account is active by default)
+- round: 0
+
+EXAMPLES:
+---------
+
+1. BASIC SIGNUP (MINIMUM REQUIRED FIELDS):
+   curl -X POST "https://ruyadream.com/velox/api/signup.php" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "name": "John Doe",
+       "phone": "+1234567890",
+       "address": "123 Main Street, New York",
+       "password": "mySecurePass123"
+     }'
+
+2. FULL SIGNUP (WITH OPTIONAL FIELDS):
+   curl -X POST "https://ruyadream.com/velox/api/signup.php" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "name": "Jane Smith",
+       "phone": "+9876543210",
+       "address": "456 Oak Avenue, California",
+       "password": "anotherPass456",
+       "email": "jane.smith@example.com",
+       "instagram": "@janesmith",
+       "facebook": "jane.smith.profile"
+     }'
+
+3. SIGNUP WITH FORM DATA (ALTERNATIVE):
+   curl -X POST "https://ruyadream.com/velox/api/signup.php" \
+     -F "name=John Doe" \
+     -F "phone=+1234567890" \
+     -F "address=123 Main St" \
+     -F "password=mypass123"
+
+SUCCESS RESPONSE:
+-----------------
+Status: 201 Created
+{
+  "success": true,
+  "message": "Account created successfully! You can now login.",
+  "data": {
+    "user_id": 123,
+    "name": "John Doe",
+    "phone": "+1234567890",
+    "address": "123 Main Street, New York",
+    "email": null,
+    "instagram": null,
+    "facebook": null,
+    "usertype": 1,
+    "is_active": 1
+  }
+}
+
+ERROR RESPONSES:
+----------------
+
+1. Missing Required Fields:
+   Status: 400 Bad Request
+   {
+     "success": false,
+     "message": "Missing required fields: name, phone"
+   }
+
+2. Name Too Short:
+   Status: 400 Bad Request
+   {
+     "success": false,
+     "message": "Name must be at least 2 characters long."
+   }
+
+3. Invalid Phone Number:
+   Status: 400 Bad Request
+   {
+     "success": false,
+     "message": "Please provide a valid phone number (at least 10 digits)."
+   }
+
+4. Weak Password:
+   Status: 400 Bad Request
+   {
+     "success": false,
+     "message": "Password must be at least 6 characters long."
+   }
+
+5. Invalid Email Format:
+   Status: 400 Bad Request
+   {
+     "success": false,
+     "message": "Please provide a valid email address."
+   }
+
+6. Phone Already Registered:
+   Status: 409 Conflict
+   {
+     "success": false,
+     "message": "This phone number is already registered. Please use a different phone number or login."
+   }
+
+7. Email Already Registered:
+   Status: 409 Conflict
+   {
+     "success": false,
+     "message": "This email address is already registered. Please use a different email or login."
+   }
+
+8. Invalid Method:
+   Status: 405 Method Not Allowed
+   {
+     "success": false,
+     "message": "Method not allowed. Only POST requests are accepted."
+   }
+
+9. Server Error:
+   Status: 500 Internal Server Error
+   {
+     "success": false,
+     "message": "Failed to create account: [error details]"
+   }
+
+FLUTTER INTEGRATION:
+--------------------
+See signup_flutter_example.dart for complete implementation.
+
+WORKFLOW:
+---------
+1. User fills in registration form
+2. App sends POST request to signup API
+3. API validates all fields
+4. API checks for duplicate phone/email
+5. API hashes password securely
+6. API creates new user account
+7. API returns user data (without password)
+8. App can either:
+   a) Automatically log the user in
+   b) Redirect to login page
+   c) Show success message
+
+NEXT STEPS AFTER SIGNUP:
+-------------------------
+After successful signup, the user should:
+1. Use the login API (/api/login.php) to authenticate
+2. Save the user_id for future API calls
+3. Use the profile API (/api/profile.php) to view/update their profile
+
+NOTES:
+------
+- Passwords are stored in plain text in the database
+- Passwords are NEVER returned in API responses
+- Phone numbers are used as unique identifiers
+- Email is optional but if provided, must be unique
+- Users are active by default (is_active = 1)
+- Default usertype is 1 (can be customized in the code)
+

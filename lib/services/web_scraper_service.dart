@@ -97,6 +97,8 @@ class WebScraperService {
       'description': null,
       'color': null,
       'size': null,
+      'good_sn': null,
+      'sku': null,
     };
 
     // Detect site type for specialized extraction
@@ -194,7 +196,22 @@ class WebScraperService {
       final text = script.text;
       
       // Look for product data in window objects
-      if (text.contains('productIntroData') || text.contains('gbProductInfo')) {
+      if (text.contains('productIntroData') || text.contains('gbProductInfo') || text.contains('good_sn') || text.contains('goods_sn')) {
+        // Try to extract good_sn / goods_sn (SHEIN product serial)
+        if (data['good_sn'] == null) {
+          final goodSnMatch = RegExp(r'"good_sn"[:\s]*"([^"]+)"').firstMatch(text);
+          if (goodSnMatch != null) {
+            data['good_sn'] = goodSnMatch.group(1);
+          } else {
+            final goodsSnMatch = RegExp(r'"goods_sn"[:\s]*"([^"]+)"').firstMatch(text);
+            if (goodsSnMatch != null) {
+              data['good_sn'] = goodsSnMatch.group(1);
+            }
+          }
+        }
+        if (data['sku'] == null && data['good_sn'] != null) {
+          data['sku'] = data['good_sn'];
+        }
         // Try to extract price
         final priceMatch = RegExp(r'"salePrice"[:\s]*\{[^}]*"amount"[:\s]*"?([0-9.]+)"?').firstMatch(text);
         if (priceMatch != null && data['price'] == null) {

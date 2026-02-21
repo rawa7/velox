@@ -1,0 +1,2 @@
+[18-Oct-2025 10:36:52 UTC] PHP Notice:  Undefined index: REQUEST_METHOD in /home/veloxshipping/public_html/api/add_order.php on line 8
+[18-Oct-2025 10:36:52 UTC] PHP Notice:  Undefined index: REQUEST_METHOD in /home/veloxshipping/public_html/api/add_order.php on line 14

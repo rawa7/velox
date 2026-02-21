@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SHEIN Extract API Test - Velox</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 30px 0;
+        }
+        .container {
+            max-width: 900px;
+        }
+        .card {
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        .card-header {
+            background: linear-gradient(135deg, #222 0%, #444 100%);
+            color: white;
+            border-radius: 15px 15px 0 0 !important;
+            padding: 20px;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+        }
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+        }
+        .item-card {
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 10px;
+            background: #f8f9fa;
+        }
+        .item-image {
+            width: 80px;
+            height: 80px;
+            object-fit: cover;
+            border-radius: 8px;
+        }
+        pre {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h3 class="mb-0">🛍️ SHEIN Extract API - Test Page</h3>
+                <small>Test the SHEIN cart extraction API for Flutter app</small>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <strong>📱 API Endpoint:</strong><br>
+                    <code>https://ruyadream.com/velox/api/shein_extract.php</code>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label"><strong>SHEIN Cart Link:</strong></label>
+                    <input type="text" id="shein-link" class="form-control" 
+                           placeholder="http://api-shein.shein.com/h5/sharejump/appjump?link=...">
+                    <small class="text-muted">Paste a SHEIN cart or share link</small>
+                </div>
+
+                <button class="btn btn-primary btn-lg" onclick="testAPI()">
+                    🚀 Extract Items
+                </button>
+                <button class="btn btn-secondary btn-lg" onclick="clearResults()">
+                    🗑️ Clear
+                </button>
+
+                <div id="loading" class="text-center mt-4" style="display: none;">
+                    <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;"></div>
+                    <p class="mt-2">Extracting items...</p>
+                </div>
+
+                <div id="results" class="mt-4" style="display: none;">
+                    <h5>✅ API Response:</h5>
+                    <div class="alert alert-success" id="success-message"></div>
+                    
+                    <h5 class="mt-4">📦 Extracted Items:</h5>
+                    <div id="items-list"></div>
+                    
+                    <h5 class="mt-4">📄 Raw JSON Response:</h5>
+                    <pre id="json-response"></pre>
+                </div>
+
+                <div id="error" class="alert alert-danger mt-4" style="display: none;"></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">📖 API Documentation</h5>
+            </div>
+            <div class="card-body">
+                <h6>Endpoint:</h6>
+                <pre>POST/GET https://ruyadream.com/velox/api/shein_extract.php</pre>
+
+                <h6 class="mt-3">Parameters:</h6>
+                <pre>{
+  "shein_link": "http://api-shein.shein.com/h5/sharejump/appjump?link=..."
+}</pre>
+
+                <h6 class="mt-3">Success Response:</h6>
+                <pre>{
+  "success": true,
+  "message": "Successfully extracted 3 items from SHEIN cart",
+  "items": [
+    {
+      "code": "sku2309200899940400",
+      "name": "1 قطعة نظارات بطراز كبير الحجم",
+      "image": "https://img.ltwebstatic.com/images3_spmp/2023/09/20/...",
+      "price": 2.67,
+      "qty": 1
+    }
+  ],
+  "total_items": 3,
+  "total_price": 37.50
+}</pre>
+
+                <h6 class="mt-3">Error Response:</h6>
+                <pre>{
+  "success": false,
+  "message": "Error message here",
+  "items": [],
+  "total_items": 0,
+  "total_price": 0
+}</pre>
+
+                <h6 class="mt-3">Flutter Example (Dart):</h6>
+                <pre>import 'dart:convert';
+import 'package:http/http.dart' as http;
+
+Future&lt;Map&lt;String, dynamic&gt;&gt; extractSheinCart(String sheinLink) async {
+  final url = Uri.parse('https://ruyadream.com/velox/api/shein_extract.php');
+  
+  final response = await http.post(
+    url,
+    headers: {'Content-Type': 'application/json'},
+    body: jsonEncode({'shein_link': sheinLink}),
+  );
+  
+  if (response.statusCode == 200) {
+    return jsonDecode(response.body);
+  } else {
+    throw Exception('Failed to extract cart');
+  }
+}
+
+// Usage:
+try {
+  var result = await extractSheinCart('YOUR_SHEIN_LINK');
+  if (result['success']) {
+    print('Items: ${result['items']}');
+    print('Total: \$${result['total_price']}');
+  } else {
+    print('Error: ${result['message']}');
+  }
+} catch (e) {
+  print('Exception: $e');
+}</pre>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function testAPI() {
+            const sheinLink = document.getElementById('shein-link').value.trim();
+            
+            if (!sheinLink) {
+                alert('Please enter a SHEIN link');
+                return;
+            }
+
+            // Show loading
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('results').style.display = 'none';
+            document.getElementById('error').style.display = 'none';
+
+            try {
+                const response = await fetch('shein_extract.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        shein_link: sheinLink
+                    })
+                });
+
+                const data = await response.json();
+
+                // Hide loading
+                document.getElementById('loading').style.display = 'none';
+
+                if (data.success) {
+                    // Show success
+                    document.getElementById('success-message').textContent = data.message;
+                    
+                    // Show items
+                    const itemsList = document.getElementById('items-list');
+                    itemsList.innerHTML = '';
+                    
+                    data.items.forEach(item => {
+                        const itemCard = document.createElement('div');
+                        itemCard.className = 'item-card';
+                        itemCard.innerHTML = `
+                            <div class="row align-items-center">
+                                <div class="col-auto">
+                                    ${item.image ? `<img src="${item.image}" class="item-image">` : '<div class="item-image bg-secondary"></div>'}
+                                </div>
+                                <div class="col">
+                                    <strong>${item.code}</strong><br>
+                                    <small class="text-muted">${item.name}</small>
+                                </div>
+                                <div class="col-auto">
+                                    <strong>$${item.price.toFixed(2)}</strong><br>
+                                    <small>Qty: ${item.qty}</small>
+                                </div>
+                            </div>
+                        `;
+                        itemsList.appendChild(itemCard);
+                    });
+
+                    // Add totals
+                    const totalsCard = document.createElement('div');
+                    totalsCard.className = 'item-card bg-primary text-white';
+                    totalsCard.innerHTML = `
+                        <div class="row">
+                            <div class="col">
+                                <strong>Total Items: ${data.total_items}</strong>
+                            </div>
+                            <div class="col text-end">
+                                <strong>Total Price: $${data.total_price.toFixed(2)}</strong>
+                            </div>
+                        </div>
+                    `;
+                    itemsList.appendChild(totalsCard);
+                    
+                    // Show JSON
+                    document.getElementById('json-response').textContent = JSON.stringify(data, null, 2);
+                    
+                    document.getElementById('results').style.display = 'block';
+                } else {
+                    // Show error
+                    document.getElementById('error').textContent = '❌ ' + data.message;
+                    document.getElementById('error').style.display = 'block';
+                    
+                    // Show JSON anyway
+                    document.getElementById('json-response').textContent = JSON.stringify(data, null, 2);
+                    document.getElementById('results').style.display = 'block';
+                }
+            } catch (error) {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('error').textContent = '❌ Request failed: ' + error.message;
+                document.getElementById('error').style.display = 'block';
+            }
+        }
+
+        function clearResults() {
+            document.getElementById('shein-link').value = '';
+            document.getElementById('results').style.display = 'none';
+            document.getElementById('error').style.display = 'none';
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        // Example link for testing
+        const exampleLink = 'http://api-shein.shein.com/h5/sharejump/appjump?link=lhBZeA2AVi1_b&localcountry=SA&url_from=GM74734338020';
+    </script>
+</body>
+</html>

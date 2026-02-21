@@ -53,11 +53,12 @@ class CartItem {
   /// Create from SHEIN extraction API response
   factory CartItem.fromSheinJson(Map<String, dynamic> json) {
     return CartItem(
-      serialNumber: json['code']?.toString() ?? '',
+      serialNumber: json['code']?.toString() ?? json['good_sn']?.toString() ?? '',
       itemName: json['name']?.toString() ?? '',
       quantity: int.tryParse(json['qty']?.toString() ?? '1') ?? 1,
       price: double.tryParse(json['price']?.toString() ?? '0') ?? 0.0,
       imageUrl: json['image']?.toString(),
+      size: json['size']?.toString() ?? json['good_attr']?.toString() ?? json['attr_value']?.toString(),
     );
   }
 

@@ -1,0 +1,122 @@
+{
+  "account_deletion_api": {
+    "endpoint": "https://ruyadream.com/velox/api/deactivate_account.php",
+    "method": "POST",
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "phone": "07501234567",
+      "password": "userpassword"
+    },
+    "success_response": {
+      "success": true,
+      "message": "Your account has been successfully deactivated. Contact support to reactivate.",
+      "data": {
+        "customer_id": 123,
+        "customer_name": "John Doe"
+      }
+    },
+    "error_responses": {
+      "invalid_credentials": {
+        "success": false,
+        "message": "Invalid phone number or password."
+      },
+      "already_deactivated": {
+        "success": false,
+        "message": "This account is already deactivated."
+      },
+      "missing_fields": {
+        "success": false,
+        "message": "Phone number and password are required."
+      }
+    },
+    "curl_example": "curl -X POST https://ruyadream.com/velox/api/deactivate_account.php -H 'Content-Type: application/json' -d '{\"phone\":\"07501234567\",\"password\":\"userpass\"}'"
+  },
+  
+  "save_fcm_token": {
+    "endpoint": "https://ruyadream.com/velox/api/save_fcm.php",
+    "method": "POST",
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "token": "fcm_device_token_here",
+      "customer_id": 123,
+      "platform": "ios",
+      "device_id": "unique_device_id"
+    },
+    "curl_example": "curl -X POST https://ruyadream.com/velox/api/save_fcm.php -H 'Content-Type: application/json' -d '{\"token\":\"fcm_token\",\"customer_id\":123,\"platform\":\"ios\"}'"
+  },
+  
+  "delete_fcm_token": {
+    "endpoint": "https://ruyadream.com/velox/api/delete_fcm.php",
+    "method": "POST",
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "token": "fcm_device_token_here",
+      "customer_id": 123
+    },
+    "note": "Called when user logs out or deletes account",
+    "curl_example": "curl -X POST https://ruyadream.com/velox/api/delete_fcm.php -H 'Content-Type: application/json' -d '{\"token\":\"fcm_token\",\"customer_id\":123}'"
+  },
+  
+  "send_notification": {
+    "endpoint": "https://ruyadream.com/velox/api/send_notification.php",
+    "method": "POST",
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body_option_1": {
+      "token": "specific_fcm_token",
+      "title": "Order Update",
+      "body": "Your order #123 has been delivered!",
+      "data": {
+        "order_id": "123",
+        "type": "delivery"
+      }
+    },
+    "body_option_2": {
+      "customer_id": 123,
+      "title": "Order Update",
+      "body": "Your order #123 has been delivered!",
+      "data": {
+        "order_id": "123",
+        "type": "delivery"
+      }
+    },
+    "note": "Use either 'token' for specific device or 'customer_id' to send to all user's devices"
+  },
+  
+  "swift_example_account_deletion": {
+    "description": "Swift code example for iOS app",
+    "code": "func deleteAccount(phone: String, password: String, completion: @escaping (Bool, String) -> Void) {\n    let url = URL(string: \"https://ruyadream.com/velox/api/deactivate_account.php\")!\n    var request = URLRequest(url: url)\n    request.httpMethod = \"POST\"\n    request.setValue(\"application/json\", forHTTPHeaderField: \"Content-Type\")\n    \n    let body: [String: String] = [\"phone\": phone, \"password\": password]\n    request.httpBody = try? JSONSerialization.data(withJSONObject: body)\n    \n    URLSession.shared.dataTask(with: request) { data, response, error in\n        guard let data = data, error == nil else {\n            completion(false, \"Network error\")\n            return\n        }\n        \n        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],\n           let success = json[\"success\"] as? Bool,\n           let message = json[\"message\"] as? String {\n            completion(success, message)\n        } else {\n            completion(false, \"Invalid response\")\n        }\n    }.resume()\n}"
+  },
+  
+  "ios_ui_example": {
+    "description": "Add this to your iOS Settings screen",
+    "location": "Settings → Account → Delete Account",
+    "steps": [
+      "Show confirmation alert",
+      "Prompt for phone and password",
+      "Call deleteAccount API",
+      "Clear local data on success",
+      "Clear FCM token",
+      "Logout and return to login screen"
+    ]
+  },
+  
+  "testing_checklist": [
+    "Test account deletion with valid credentials",
+    "Test account deletion with invalid credentials",
+    "Test account deletion for already deleted account",
+    "Test FCM token save on login",
+    "Test FCM token delete on logout",
+    "Test FCM token delete on account deletion",
+    "Test notification delivery",
+    "Verify deactivated user cannot login"
+  ]
+}
+

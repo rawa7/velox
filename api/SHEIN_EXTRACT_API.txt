@@ -1,0 +1,364 @@
+================================================================================
+SHEIN CART EXTRACTION API - DOCUMENTATION
+================================================================================
+
+Endpoint: https://ruyadream.com/velox/api/shein_extract.php
+Method: POST or GET
+Authentication: NOT REQUIRED (Public API)
+Content-Type: application/json
+
+================================================================================
+DESCRIPTION
+================================================================================
+
+This API extracts product items from SHEIN cart/share links. It returns:
+- Product SKU codes
+- Product names
+- Product images
+- Prices (in USD)
+- Quantities
+
+Perfect for the Flutter mobile app to quickly import SHEIN cart items!
+
+================================================================================
+REQUEST PARAMETERS
+================================================================================
+
+shein_link (string, required):
+  - The SHEIN cart or share link from the mobile app or website
+  - Example: "http://api-shein.shein.com/h5/sharejump/appjump?link=..."
+
+================================================================================
+REQUEST EXAMPLE (POST)
+================================================================================
+
+POST https://ruyadream.com/velox/api/shein_extract.php
+Content-Type: application/json
+
+{
+  "shein_link": "http://api-shein.shein.com/h5/sharejump/appjump?link=lhBZeA2AVi1_b&localcountry=SA&url_from=GM74734338020"
+}
+
+================================================================================
+REQUEST EXAMPLE (GET)
+================================================================================
+
+GET https://ruyadream.com/velox/api/shein_extract.php?shein_link=http://api-shein.shein.com/h5/sharejump/appjump?link=...
+
+================================================================================
+SUCCESS RESPONSE (HTTP 200)
+================================================================================
+
+{
+  "success": true,
+  "message": "Successfully extracted 3 items from SHEIN cart",
+  "items": [
+    {
+      "code": "sc2309200899940400",
+      "name": "1 قطعة نظارات بطراز كبير الحجم برجعي",
+      "image": "https://img.ltwebstatic.com/images3_spmp/2023/09/20/...",
+      "price": 2.67,
+      "qty": 1
+    },
+    {
+      "code": "sc2404170154171687",
+      "name": "1 قطعة نظارات رجالية قابلة للطي",
+      "image": "https://img.ltwebstatic.com/images3_spmp/2024/04/17/...",
+      "price": 2.93,
+      "qty": 1
+    }
+  ],
+  "total_items": 2,
+  "total_price": 5.60
+}
+
+================================================================================
+ERROR RESPONSE (HTTP 200)
+================================================================================
+
+{
+  "success": false,
+  "message": "Missing parameter: shein_link",
+  "items": [],
+  "total_items": 0,
+  "total_price": 0
+}
+
+Common error messages:
+- "Missing parameter: shein_link"
+- "Invalid SHEIN link. Please provide a valid SHEIN cart or share link."
+- "No items found in the cart. The link may be empty or expired."
+- "Failed to extract items from SHEIN link. The link may be invalid or expired."
+- "Network error: ..."
+- "API request failed with HTTP code XXX"
+
+================================================================================
+FLUTTER/DART IMPLEMENTATION
+================================================================================
+
+1. Add http package to pubspec.yaml:
+
+dependencies:
+  http: ^1.1.0
+
+
+2. Create API Service:
+
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+
+class SheinExtractService {
+  static const String baseUrl = 'https://ruyadream.com/velox/api';
+  
+  // Extract items from SHEIN cart link
+  static Future<Map<String, dynamic>> extractCart(String sheinLink) async {
+    try {
+      final url = Uri.parse('$baseUrl/shein_extract.php');
+      
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'shein_link': sheinLink,
+        }),
+      );
+      
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data;
+      } else {
+        return {
+          'success': false,
+          'message': 'HTTP ${response.statusCode}',
+          'items': [],
+          'total_items': 0,
+          'total_price': 0.0,
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Network error: $e',
+        'items': [],
+        'total_items': 0,
+        'total_price': 0.0,
+      };
+    }
+  }
+}
+
+
+3. Create Data Models:
+
+class SheinExtractResponse {
+  final bool success;
+  final String message;
+  final List<SheinItem> items;
+  final int totalItems;
+  final double totalPrice;
+  
+  SheinExtractResponse({
+    required this.success,
+    required this.message,
+    required this.items,
+    required this.totalItems,
+    required this.totalPrice,
+  });
+  
+  factory SheinExtractResponse.fromJson(Map<String, dynamic> json) {
+    return SheinExtractResponse(
+      success: json['success'] ?? false,
+      message: json['message'] ?? '',
+      items: (json['items'] as List<dynamic>?)
+          ?.map((item) => SheinItem.fromJson(item))
+          .toList() ?? [],
+      totalItems: json['total_items'] ?? 0,
+      totalPrice: (json['total_price'] ?? 0).toDouble(),
+    );
+  }
+}
+
+class SheinItem {
+  final String code;
+  final String name;
+  final String image;
+  final double price;
+  final int qty;
+  
+  SheinItem({
+    required this.code,
+    required this.name,
+    required this.image,
+    required this.price,
+    required this.qty,
+  });
+  
+  factory SheinItem.fromJson(Map<String, dynamic> json) {
+    return SheinItem(
+      code: json['code'] ?? '',
+      name: json['name'] ?? '',
+      image: json['image'] ?? '',
+      price: (json['price'] ?? 0).toDouble(),
+      qty: json['qty'] ?? 1,
+    );
+  }
+  
+  double get subtotal => price * qty;
+}
+
+
+4. Usage Example in Flutter UI:
+
+class SheinExtractPage extends StatefulWidget {
+  @override
+  _SheinExtractPageState createState() => _SheinExtractPageState();
+}
+
+class _SheinExtractPageState extends State<SheinExtractPage> {
+  final TextEditingController _linkController = TextEditingController();
+  bool _loading = false;
+  SheinExtractResponse? _response;
+  
+  Future<void> _extractCart() async {
+    final link = _linkController.text.trim();
+    
+    if (link.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Please enter a SHEIN link')),
+      );
+      return;
+    }
+    
+    setState(() => _loading = true);
+    
+    try {
+      final result = await SheinExtractService.extractCart(link);
+      final response = SheinExtractResponse.fromJson(result);
+      
+      setState(() {
+        _response = response;
+        _loading = false;
+      });
+      
+      if (response.success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✓ Extracted ${response.totalItems} items!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(response.message),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      setState(() => _loading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    }
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('SHEIN Cart Extractor')),
+      body: Padding(
+        padding: EdgeInsets.all(16),
+        child: Column(
+          children: [
+            TextField(
+              controller: _linkController,
+              decoration: InputDecoration(
+                labelText: 'SHEIN Cart Link',
+                hintText: 'Paste SHEIN link here...',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _loading ? null : _extractCart,
+              child: _loading
+                  ? CircularProgressIndicator(color: Colors.white)
+                  : Text('Extract Items'),
+            ),
+            SizedBox(height: 24),
+            if (_response != null && _response!.success)
+              Expanded(
+                child: ListView.builder(
+                  itemCount: _response!.items.length,
+                  itemBuilder: (context, index) {
+                    final item = _response!.items[index];
+                    return Card(
+                      child: ListTile(
+                        leading: item.image.isNotEmpty
+                            ? Image.network(item.image, width: 60)
+                            : Icon(Icons.image),
+                        title: Text(item.code),
+                        subtitle: Text(item.name),
+                        trailing: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text('\$${item.price.toStringAsFixed(2)}',
+                                style: TextStyle(fontWeight: FontWeight.bold)),
+                            Text('Qty: ${item.qty}'),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+================================================================================
+TESTING
+================================================================================
+
+Test Page: https://ruyadream.com/velox/api/test_shein_extract.html
+
+You can test the API directly in your browser before implementing in Flutter.
+
+Example test link:
+http://api-shein.shein.com/h5/sharejump/appjump?link=lhBZeA2AVi1_b&localcountry=SA&url_from=GM74734338020
+
+================================================================================
+NOTES
+================================================================================
+
+1. NO AUTHENTICATION REQUIRED - This is a public API like the driver APIs
+
+2. Prices are returned in USD - convert to Iraqi Dinar in your app if needed
+
+3. Links expire - SHEIN cart links may expire after some time
+
+4. Rate limits - The underlying RapidAPI has rate limits (check if errors occur)
+
+5. Image URLs - All image URLs are returned with HTTPS protocol
+
+6. Product codes - The "code" field contains the SKU code, use it as the item identifier
+
+================================================================================
+SUPPORT
+================================================================================
+
+If you encounter any issues:
+1. Check the test page first
+2. Verify the SHEIN link is valid and not expired
+3. Check the error message in the response
+4. Contact the backend team if problems persist
+
+================================================================================

@@ -434,6 +434,7 @@ class ApiService {
     int? currencyId,
     String? color,
     String? note,
+    List<Map<String, dynamic>>? subItems, // SHEIN cart sub-items for item_details table
   }) async {
     try {
       final url = Uri.parse('$baseUrl/add_order.php');
@@ -453,14 +454,15 @@ class ApiService {
       if (price != null) {
         request.fields['price'] = price.toString();
       }
-      if (currencyId != null) {
-        request.fields['currency_id'] = currencyId.toString();
-      }
       if (color != null && color.isNotEmpty) {
         request.fields['color'] = color;
       }
       if (note != null && note.isNotEmpty) {
         request.fields['note'] = note;
+      }
+      // Send SHEIN cart sub-items as JSON string
+      if (subItems != null && subItems.isNotEmpty) {
+        request.fields['sub_items'] = jsonEncode(subItems);
       }
 
       // Add image file
@@ -949,6 +951,41 @@ class ApiService {
         'items': [],
         'total_items': 0,
         'total_price': 0.0,
+      };
+    }
+  }
+
+  // Extract a single SHEIN product by URL using shein1product.php
+  static Future<Map<String, dynamic>> extractSheinSingleProduct(String sheinUrl) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/shein1product.php'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'url': sheinUrl}),
+      );
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+
+      if (response.statusCode == 200 && data['success'] == true) {
+        final product = data['product'] as Map<String, dynamic>? ?? {};
+        return {
+          'success': true,
+          'name': product['name']?.toString() ?? '',
+          'good_sn': product['goods_sn']?.toString() ?? '',
+          'image': product['image']?.toString() ?? '',
+          'price': double.tryParse(product['price']?.toString() ?? '') ?? 0.0,
+          'goods_id': product['goods_id']?.toString() ?? '',
+        };
+      } else {
+        return {
+          'success': false,
+          'message': data['error']?.toString() ?? 'Failed to extract product',
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Network error: $e',
       };
     }
   }

@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shop Banners Management</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .tab {
+            padding: 12px 24px;
+            background: #f0f0f0;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+        
+        .tab.active {
+            background: #667eea;
+            color: white;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        input, textarea, select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        
+        button {
+            background: #667eea;
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        button:hover {
+            background: #5568d3;
+        }
+        
+        .banner-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        
+        .banner-item {
+            background: #f9f9f9;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: transform 0.3s;
+        }
+        
+        .banner-item:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 12px rgba(0,0,0,0.15);
+        }
+        
+        .banner-image {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            background: #e0e0e0;
+        }
+        
+        .banner-content {
+            padding: 15px;
+        }
+        
+        .banner-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 8px;
+        }
+        
+        .banner-description {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 10px;
+        }
+        
+        .banner-product {
+            font-size: 14px;
+            color: #667eea;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        
+        .banner-price {
+            font-size: 16px;
+            color: #27ae60;
+            font-weight: bold;
+        }
+        
+        .banner-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .btn-delete {
+            background: #e74c3c;
+            padding: 8px 16px;
+            font-size: 14px;
+        }
+        
+        .btn-delete:hover {
+            background: #c0392b;
+        }
+        
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🛍️ Shop Banners Management</h1>
+        
+        <div class="card">
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('view')">📋 View Banners</button>
+                <button class="tab" onclick="switchTab('create')">➕ Create Banner</button>
+                <button class="tab" onclick="switchTab('api')">📖 API Docs</button>
+            </div>
+            
+            <!-- View Banners Tab -->
+            <div id="view-tab" class="tab-content active">
+                <h2>Active Banners</h2>
+                <div id="banners-list" class="banner-grid">
+                    <div class="loading">Loading banners...</div>
+                </div>
+            </div>
+            
+            <!-- Create Banner Tab -->
+            <div id="create-tab" class="tab-content">
+                <h2>Create New Banner</h2>
+                <div id="create-alert"></div>
+                
+                <form id="createBannerForm" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label for="product_id">Select Product *</label>
+                        <select id="product_id" name="product_id" required>
+                            <option value="">-- Select a product --</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="title">Banner Title (English) *</label>
+                        <input type="text" id="title" name="title" required placeholder="e.g., Summer Sale!">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="title_kurdish">Banner Title (Kurdish)</label>
+                        <input type="text" id="title_kurdish" name="title_kurdish" placeholder="عنوان به کوردی">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="title_arabic">Banner Title (Arabic)</label>
+                        <input type="text" id="title_arabic" name="title_arabic" placeholder="العنوان بالعربية">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="description">Description (English)</label>
+                        <textarea id="description" name="description" placeholder="Banner description..."></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="description_kurdish">Description (Kurdish)</label>
+                        <textarea id="description_kurdish" name="description_kurdish" placeholder="وەسف به کوردی"></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="description_arabic">Description (Arabic)</label>
+                        <textarea id="description_arabic" name="description_arabic" placeholder="الوصف بالعربية"></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="banner_image">Banner Image (Optional - 2MB max)</label>
+                        <input type="file" id="banner_image" name="banner_image" accept="image/*">
+                        <small>If not uploaded, product's main image will be used</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="position">Position (Order)</label>
+                        <input type="number" id="position" name="position" value="0" min="0">
+                    </div>
+                    
+                    <button type="submit">Create Banner</button>
+                </form>
+            </div>
+            
+            <!-- API Documentation Tab -->
+            <div id="api-tab" class="tab-content">
+                <h2>API Documentation</h2>
+                
+                <h3>📥 Get All Banners</h3>
+                <pre><code>GET /api/shop_banners.php
+
+Response:
+{
+  "success": true,
+  "data": [
+    {
+      "banner_id": 1,
+      "title": "Summer Sale!",
+      "description": "Get 50% off on selected items",
+      "product_id": 53,
+      "product_name": "MANGO",
+      "product_price": 85.00,
+      "product_category": "WOMEN",
+      "brand_name": "MANGO",
+      "position": 0,
+      "banner_image": "https://ruyadream.com/velox/uploads/banner_xxx.jpg",
+      "product_image": "https://ruyadream.com/velox/uploads/6396.PNG"
+    }
+  ]
+}</code></pre>
+
+                <h3>➕ Create Banner</h3>
+                <pre><code>POST /api/shop_banners.php
+Content-Type: multipart/form-data
+
+Parameters:
+- title (required): Banner title
+- title_kurdish: Title in Kurdish
+- title_arabic: Title in Arabic
+- description: Banner description
+- description_kurdish: Description in Kurdish
+- description_arabic: Description in Arabic
+- product_id (required): Product ID to link
+- banner_image: Banner image file
+- position: Display order (default: 0)
+- is_active: 1 or 0 (default: 1)</code></pre>
+
+                <h3>🔄 Update Banner</h3>
+                <pre><code>PUT /api/shop_banners.php
+Content-Type: application/x-www-form-urlencoded
+
+Parameters: (same as POST + banner_id)</code></pre>
+
+                <h3>🗑️ Delete Banner</h3>
+                <pre><code>DELETE /api/shop_banners.php
+Content-Type: application/json
+
+{
+  "banner_id": 1
+}</code></pre>
+
+                <h3>🎯 Flutter Example</h3>
+                <pre><code>// Fetch banners
+final response = await http.get(
+  Uri.parse('https://ruyadream.com/velox/api/shop_banners.php')
+);
+
+final data = json.decode(response.body);
+List banners = data['data'];
+
+// Display in carousel
+CarouselSlider(
+  items: banners.map((banner) {
+    return GestureDetector(
+      onTap: () {
+        // Navigate to product page
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ProductPage(
+              productId: banner['product_id']
+            )
+          )
+        );
+      },
+      child: Image.network(
+        banner['banner_image'] ?? banner['product_image'],
+        fit: BoxFit.cover,
+      ),
+    );
+  }).toList(),
+)</code></pre>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let products = [];
+        
+        // Tab switching
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(tabName + '-tab').classList.add('active');
+            
+            if (tabName === 'view') {
+                loadBanners();
+            } else if (tabName === 'create') {
+                loadProducts();
+            }
+        }
+        
+        // Load products for dropdown
+        async function loadProducts() {
+            try {
+                const response = await fetch('/api/shop.php');
+                const data = await response.json();
+                products = data.data;
+                
+                const select = document.getElementById('product_id');
+                select.innerHTML = '<option value="">-- Select a product --</option>';
+                
+                products.forEach(product => {
+                    const option = document.createElement('option');
+                    option.value = product.item_id;
+                    option.textContent = `${product.item_name} - $${product.price} (${product.brand_name})`;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error loading products:', error);
+            }
+        }
+        
+        // Load banners
+        async function loadBanners() {
+            const container = document.getElementById('banners-list');
+            container.innerHTML = '<div class="loading">Loading banners...</div>';
+            
+            try {
+                const response = await fetch('/api/shop_banners.php');
+                const data = await response.json();
+                
+                if (data.success && data.data.length > 0) {
+                    container.innerHTML = '';
+                    data.data.forEach(banner => {
+                        const bannerCard = document.createElement('div');
+                        bannerCard.className = 'banner-item';
+                        bannerCard.innerHTML = `
+                            <img src="${banner.banner_image || banner.product_image || '/api/placeholder.png'}" 
+                                 class="banner-image" 
+                                 alt="${banner.title}"
+                                 onerror="this.src='/api/placeholder.png'">
+                            <div class="banner-content">
+                                <div class="banner-title">${banner.title}</div>
+                                ${banner.description ? `<div class="banner-description">${banner.description}</div>` : ''}
+                                <div class="banner-product">🔗 ${banner.product_name}</div>
+                                <div class="banner-price">$${banner.product_price}</div>
+                                <div class="banner-actions">
+                                    <button class="btn-delete" onclick="deleteBanner(${banner.banner_id})">Delete</button>
+                                </div>
+                            </div>
+                        `;
+                        container.appendChild(bannerCard);
+                    });
+                } else {
+                    container.innerHTML = '<div class="loading">No banners found. Create your first banner!</div>';
+                }
+            } catch (error) {
+                container.innerHTML = '<div class="alert alert-error">Error loading banners: ' + error.message + '</div>';
+            }
+        }
+        
+        // Create banner
+        document.getElementById('createBannerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const alertDiv = document.getElementById('create-alert');
+            const formData = new FormData(e.target);
+            
+            try {
+                const response = await fetch('/api/shop_banners.php', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alertDiv.innerHTML = '<div class="alert alert-success">✅ Banner created successfully!</div>';
+                    e.target.reset();
+                    setTimeout(() => {
+                        switchTab('view');
+                        document.querySelector('.tab').click();
+                    }, 1500);
+                } else {
+                    alertDiv.innerHTML = `<div class="alert alert-error">❌ Error: ${data.error}</div>`;
+                }
+            } catch (error) {
+                alertDiv.innerHTML = `<div class="alert alert-error">❌ Error: ${error.message}</div>`;
+            }
+        });
+        
+        // Delete banner
+        async function deleteBanner(bannerId) {
+            if (!confirm('Are you sure you want to delete this banner?')) return;
+            
+            try {
+                const response = await fetch('/api/shop_banners.php', {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ banner_id: bannerId })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    loadBanners();
+                } else {
+                    alert('Error deleting banner: ' + data.error);
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+        
+        // Initial load
+        loadBanners();
+    </script>
+</body>
+</html>
+

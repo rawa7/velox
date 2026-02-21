@@ -418,6 +418,7 @@ class _StoreScreenState extends State<StoreScreen> {
       child: Container(
         margin: const EdgeInsets.only(right: 12),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Container(
               width: 50,

@@ -1,20 +1,28 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import '../constants/app_colors.dart';
 import '../services/api_service.dart';
 import '../services/storage_service.dart';
 import '../services/web_scraper_service.dart';
 import '../models/user_model.dart';
-import '../models/size_model.dart';
-import '../models/currency_model.dart';
 import '../models/cart_item_model.dart';
 import '../generated/app_localizations.dart';
 
 class AddOrderScreen extends StatefulWidget {
   final String? initialUrl;
+  final String? initialName;
+  final String? initialSerial;
+  final String? initialImageUrl;
 
-  const AddOrderScreen({super.key, this.initialUrl});
+  const AddOrderScreen({
+    super.key,
+    this.initialUrl,
+    this.initialName,
+    this.initialSerial,
+    this.initialImageUrl,
+  });
 
   @override
   State<AddOrderScreen> createState() => _AddOrderScreenState();
@@ -22,22 +30,27 @@ class AddOrderScreen extends StatefulWidget {
 
 class _AddOrderScreenState extends State<AddOrderScreen> {
   User? _user;
-  List<Size> _sizes = [];
-  List<Currency> _currencies = [];
-  Size? _selectedSize;
-  Currency? _selectedCurrency;
-  
+
   final _formKey = GlobalKey<FormState>();
   final _urlController = TextEditingController();
   final _notesController = TextEditingController();
+  final _singlePriceController = TextEditingController();
+  final _sizeTextController = TextEditingController();
   
   bool _isLoading = false;
   bool _isFetchingProduct = false;
   File? _mainImage;
   
-  // Cart Items
+  // Cart Items (only used when SHEIN cart extracted)
   List<CartItem> _cartItems = [];
   bool _showCartItems = false;
+
+  // Single product (when not SHEIN cart): one whole item + product image
+  String _singleItemName = '';
+  String _singleSerial = '';
+  int _singleQty = 1;
+  double _singlePrice = 0.0;
+  String? _singleProductImageUrl;
 
   @override
   void initState() {
@@ -46,14 +59,61 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
     if (widget.initialUrl != null) {
       _urlController.text = widget.initialUrl!;
     }
-    // Start with one empty cart item
-    _cartItems.add(CartItem());
+    // Pre-populate from WebView extraction if provided
+    if (widget.initialName != null || widget.initialSerial != null || widget.initialImageUrl != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _applyInitialProductData();
+      });
+    }
+  }
+
+  void _applyInitialProductData() {
+    if (!mounted) return;
+    setState(() {
+      _showCartItems = false;
+      if (widget.initialName != null && widget.initialName!.isNotEmpty) {
+        _singleItemName = widget.initialName!;
+      }
+      if (widget.initialSerial != null && widget.initialSerial!.isNotEmpty) {
+        _singleSerial = widget.initialSerial!;
+      }
+      if (widget.initialImageUrl != null && widget.initialImageUrl!.isNotEmpty) {
+        _singleProductImageUrl = widget.initialImageUrl;
+      }
+    });
+    // Download the image to a file for submission
+    if (widget.initialImageUrl != null && widget.initialImageUrl!.isNotEmpty) {
+      _downloadImageToFile(widget.initialImageUrl!);
+    }
+  }
+
+  Future<void> _downloadImageToFile(String imageUrl) async {
+    try {
+      final imageResponse = await http.get(
+        Uri.parse(imageUrl),
+        headers: {
+          'Referer': 'https://www.shein.com/',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8',
+        },
+      );
+      if (imageResponse.statusCode == 200 && imageResponse.bodyBytes.isNotEmpty) {
+        final tempDir = await Directory.systemTemp.createTemp('velox');
+        final file = File('${tempDir.path}/product_${DateTime.now().millisecondsSinceEpoch}.jpg');
+        await file.writeAsBytes(imageResponse.bodyBytes);
+        if (mounted) setState(() => _mainImage = file);
+      }
+    } catch (e) {
+      debugPrint('Image download error: $e');
+    }
   }
 
   @override
   void dispose() {
     _urlController.dispose();
     _notesController.dispose();
+    _singlePriceController.dispose();
+    _sizeTextController.dispose();
     super.dispose();
   }
 
@@ -62,22 +122,6 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
 
     try {
       _user = await StorageService.getUser();
-
-      // Load sizes
-      final sizesResult = await ApiService.getSizes();
-      if (sizesResult['success'] == true) {
-        _sizes = sizesResult['sizes'] as List<Size>;
-      }
-
-      // Load currencies
-      final currenciesResult = await ApiService.getCurrencies();
-      if (currenciesResult['success'] == true) {
-        _currencies = currenciesResult['currencies'] as List<Currency>;
-        _selectedCurrency = _currencies.firstWhere(
-          (c) => c.currencyCode.toUpperCase() == 'USD',
-          orElse: () => _currencies.first,
-        );
-      }
     } catch (e) {
       debugPrint('Error loading data: $e');
     }
@@ -87,30 +131,205 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
     }
   }
 
-  Future<void> _fetchProductDetails() async {
-    if (_urlController.text.isEmpty) return;
+  /// Returns true if the given URL looks like a SHEIN link.
+  bool _isSheinLink(String url) {
+    return url.trim().toLowerCase().contains('shein');
+  }
+
+  /// Called when user wants to extract from the pasted link. Shows SHEIN options or runs single-product extraction.
+  /// Auto-extraction:
+  /// - SHEIN link → try full cart first; if no items found, fall back to single product
+  /// - Any other link → use web scraper directly
+  Future<void> _onExtractFromLink() async {
+    final url = _urlController.text.trim();
+    if (url.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please paste a product or cart link first'),
+          backgroundColor: AppColors.warning,
+        ),
+      );
+      return;
+    }
+
+    if (_isSheinLink(url)) {
+      await _autoExtractShein(url);
+    } else {
+      await _extractSingleProductWithScraper();
+    }
+  }
+
+  /// Try SHEIN cart first; if empty/fails, fall back to single product.
+  Future<void> _autoExtractShein(String url) async {
+    setState(() => _isFetchingProduct = true);
+
+    // ── Step 1: try cart ────────────────────────────────────────────────
+    try {
+      final cartResult = await ApiService.extractSheinCart(url);
+      if (!mounted) return;
+
+      final items = cartResult['items'] as List<dynamic>? ?? [];
+      if (cartResult['success'] == true && items.isNotEmpty) {
+        // Cart succeeded → use cart flow
+        final cartItemsList = items
+            .map((item) => CartItem.fromSheinJson(item as Map<String, dynamic>))
+            .where((item) => item.isValid)
+            .toList();
+
+        if (cartItemsList.isNotEmpty) {
+          setState(() {
+            _cartItems = cartItemsList;
+            _showCartItems = true;
+            _isFetchingProduct = false;
+          });
+
+          // Download first item image for submission
+          final firstImageUrl = _cartItems.first.imageUrl;
+          if (firstImageUrl != null && firstImageUrl.isNotEmpty) {
+            try {
+              final imgResp = await http.get(
+                Uri.parse(firstImageUrl),
+                headers: {
+                  'Referer': 'https://www.shein.com/',
+                  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                  'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8',
+                },
+              );
+              if (imgResp.statusCode == 200 && imgResp.bodyBytes.isNotEmpty) {
+                final tempDir = await Directory.systemTemp.createTemp('velox');
+                final file = File('${tempDir.path}/shein_${DateTime.now().millisecondsSinceEpoch}.jpg');
+                await file.writeAsBytes(imgResp.bodyBytes);
+                if (mounted) setState(() => _mainImage = file);
+              }
+            } catch (_) {}
+          }
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('${cartItemsList.length} cart items extracted'),
+                backgroundColor: AppColors.success,
+              ),
+            );
+          }
+          return;
+        }
+      }
+    } catch (_) {}
+
+    // ── Step 2: cart empty/failed → fall back to single product ─────────
+    if (mounted) {
+      setState(() => _isFetchingProduct = false);
+      await _extractSingleProductWithScraper();
+    }
+  }
+
+  /// Single product only: SHEIN links use the API, others use the web scraper.
+  Future<void> _extractSingleProductWithScraper() async {
+    final url = _urlController.text.trim();
+    if (url.isEmpty) return;
 
     setState(() => _isFetchingProduct = true);
 
     try {
-      final details = await WebScraperService.fetchProductDetails(_urlController.text);
-      
-      if (details != null && mounted) {
-        setState(() {
-          // If we have a single product, update the first cart item
-          if (_cartItems.isNotEmpty) {
-            _cartItems[0] = _cartItems[0].copyWith(
-              itemName: details['title'] as String? ?? '',
-              price: (details['price'] as num?)?.toDouble() ?? 0.0,
-              imageUrl: details['image'] as String?,
-              serialNumber: details['good_sn'] as String? ?? details['sku'] as String? ?? '',
-            );
+      String? imageUrl;
+      String title = '';
+      String serial = '';
+      double price = 0.0;
+
+      final isShein = url.contains('shein.com') || url.contains('shein.cn');
+
+      if (isShein) {
+        // Use the dedicated SHEIN single-product API
+        final result = await ApiService.extractSheinSingleProduct(url);
+        if (!mounted) return;
+
+        if (result['success'] != true) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result['message']?.toString() ?? 'Could not extract SHEIN product'),
+              backgroundColor: AppColors.warning,
+            ),
+          );
+          setState(() => _isFetchingProduct = false);
+          return;
+        }
+
+        title   = result['name']?.toString() ?? '';
+        serial  = result['good_sn']?.toString() ?? '';
+        price   = (result['price'] as num?)?.toDouble() ?? 0.0;
+        imageUrl = result['image']?.toString();
+        if (imageUrl != null && imageUrl.isEmpty) imageUrl = null;
+      } else {
+        // Non-SHEIN: use the web scraper
+        final result = await WebScraperService.fetchProductDetails(url);
+        if (!mounted) return;
+
+        if (result['success'] != true) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result['message']?.toString() ?? 'Could not extract product details'),
+              backgroundColor: AppColors.warning,
+            ),
+          );
+          setState(() => _isFetchingProduct = false);
+          return;
+        }
+
+        final data = result['data'] as Map<String, dynamic>?;
+        if (data == null) {
+          setState(() => _isFetchingProduct = false);
+          return;
+        }
+
+        final images = data['images'] as List<dynamic>?;
+        imageUrl = (images != null && images.isNotEmpty) ? images.first.toString() : null;
+        title   = data['title']?.toString() ?? '';
+        final priceRaw = data['price'];
+        price   = (priceRaw is num) ? priceRaw.toDouble() : (double.tryParse(priceRaw?.toString() ?? '') ?? 0.0);
+        serial  = data['good_sn']?.toString() ?? data['sku']?.toString() ?? '';
+      }
+
+      setState(() {
+        _showCartItems = false;
+        _singleItemName = title;
+        _singleSerial = serial;
+        _singleQty = 1;
+        _singlePrice = price;
+        _singleProductImageUrl = imageUrl;
+        _mainImage = null;
+        _singlePriceController.text = price > 0 ? price.toStringAsFixed(2) : '';
+      });
+
+      // Download product image to file for submission
+      if (imageUrl != null && imageUrl.isNotEmpty) {
+        try {
+          final imageResponse = await http.get(
+            Uri.parse(imageUrl),
+            headers: {
+              'Referer': 'https://www.shein.com/',
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+              'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8',
+            },
+          );
+          if (imageResponse.statusCode == 200 && imageResponse.bodyBytes.isNotEmpty) {
+            final tempDir = await Directory.systemTemp.createTemp('velox');
+            final file = File('${tempDir.path}/product_${DateTime.now().millisecondsSinceEpoch}.jpg');
+            await file.writeAsBytes(imageResponse.bodyBytes);
+            if (mounted) setState(() => _mainImage = file);
+          } else {
+            debugPrint('Image download failed: HTTP ${imageResponse.statusCode} for $imageUrl');
           }
-        });
-        
+        } catch (e) {
+          debugPrint('Image download error: $e for $imageUrl');
+          // keep _mainImage null; user can pick from gallery
+        }
+      }
+
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Product details extracted!'),
+            content: Text('Product details extracted'),
             backgroundColor: AppColors.success,
           ),
         );
@@ -132,72 +351,11 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
     }
   }
 
+  // Kept for any direct call sites; delegates to the auto-extract flow.
   Future<void> _extractSheinCart() async {
-    if (_urlController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter a SHEIN link to extract cart items'),
-          backgroundColor: AppColors.warning,
-        ),
-      );
-      return;
-    }
-
-    setState(() => _isFetchingProduct = true);
-
-    try {
-      // Call the SHEIN extraction API
-      final result = await ApiService.extractSheinCart(_urlController.text);
-      
-      if (mounted) {
-        if (result['success'] == true) {
-          final items = result['items'] as List<dynamic>;
-          
-          if (items.isNotEmpty) {
-            setState(() {
-              _cartItems = items.map((item) => CartItem.fromSheinJson(item as Map<String, dynamic>)).toList();
-              _showCartItems = true;
-            });
-            
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('✓ Successfully extracted ${items.length} items from SHEIN cart!'),
-                backgroundColor: AppColors.success,
-                duration: const Duration(seconds: 3),
-              ),
-            );
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('No items found in the cart. The link may be empty or expired.'),
-                backgroundColor: AppColors.warning,
-              ),
-            );
-          }
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(result['message'] ?? 'Could not extract cart items'),
-              backgroundColor: AppColors.error,
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      debugPrint('Error extracting SHEIN cart: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: AppColors.error,
-          ),
-        );
-      }
-    }
-
-    if (mounted) {
-      setState(() => _isFetchingProduct = false);
-    }
+    final url = _urlController.text.trim();
+    if (url.isEmpty) return;
+    await _autoExtractShein(url);
   }
 
   void _addCartItem() {
@@ -261,60 +419,80 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
       return;
     }
 
-    // Check if we have at least one valid item or main image
-    final hasValidItems = _cartItems.any((item) => item.isValid);
-    if (_mainImage == null && !hasValidItems) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.pleaseSelectImage)),
-      );
-      return;
-    }
+    final isSingleProduct = !_showCartItems;
+    File? imageToSubmit;
+    int qty;
+    double price;
+    String orderNote = _notesController.text;
 
-    if (_selectedSize == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.pleaseSelectSize)),
-      );
-      return;
+    if (isSingleProduct) {
+      if (_mainImage == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.pleaseSelectImage)),
+        );
+        return;
+      }
+      imageToSubmit = _mainImage;
+      qty = _singleQty;
+      price = _singlePrice;
+      if (_singleItemName.isNotEmpty || _singleSerial.isNotEmpty) {
+        final itemDesc = '${_singleSerial.isNotEmpty ? "[$_singleSerial] " : ""}$_singleItemName x$qty';
+        orderNote = orderNote.isEmpty ? itemDesc : '$orderNote\n$itemDesc';
+      }
+    } else {
+      final hasValidItems = _cartItems.any((item) => item.isValid);
+      if (_mainImage == null && !hasValidItems) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.pleaseSelectImage)),
+        );
+        return;
+      }
+      imageToSubmit = _mainImage ?? (_cartItems.isNotEmpty ? _cartItems.first.localImage : null);
+      if (imageToSubmit == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.pleaseSelectImage)),
+        );
+        return;
+      }
+      qty = 1; // SHEIN cart: each sub-item carries its own qty in item_details
+      price = _totalItemPrice;
+      if (_cartItems.isNotEmpty && _cartItems.any((item) => item.isValid)) {
+        final itemsNote = _cartItems
+            .where((item) => item.isValid)
+            .map((item) => '${item.serialNumber.isNotEmpty ? "[${item.serialNumber}] " : ""}${item.itemName} x${item.quantity} @ ${item.price.toStringAsFixed(2)}')
+            .join('\n');
+        orderNote = orderNote.isEmpty ? itemsNote : '$orderNote\n\n--- Items ---\n$itemsNote';
+      }
     }
 
     setState(() => _isLoading = true);
 
     try {
-      // Get image to submit - use main image or first cart item's image
-      File? imageToSubmit = _mainImage;
-      if (imageToSubmit == null && _cartItems.isNotEmpty) {
-        imageToSubmit = _cartItems.first.localImage;
-      }
-      
-      if (imageToSubmit == null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(l10n.pleaseSelectImage)),
-          );
-          setState(() => _isLoading = false);
-        }
-        return;
-      }
-
-      // Build note with cart items info
-      String orderNote = _notesController.text;
-      if (_cartItems.isNotEmpty && _cartItems.any((item) => item.isValid)) {
-        final itemsNote = _cartItems
+      // Build sub_items payload for SHEIN cart orders
+      List<Map<String, dynamic>>? subItems;
+      if (!isSingleProduct && _cartItems.any((item) => item.isValid)) {
+        subItems = _cartItems
             .where((item) => item.isValid)
-            .map((item) => '${item.serialNumber.isNotEmpty ? "[${item.serialNumber}] " : ""}${item.itemName} x${item.quantity} @ \$${item.price.toStringAsFixed(2)}')
-            .join('\n');
-        orderNote = orderNote.isEmpty ? itemsNote : '$orderNote\n\n--- Items ---\n$itemsNote';
+            .map((item) => {
+                  'item_code': item.itemName,
+                  'serial': item.serialNumber,
+                  'image': item.imageUrl ?? '',
+                  'qty': item.quantity,
+                  'price': item.price,
+                  'size': item.size ?? '',
+                })
+            .toList();
       }
 
       final response = await ApiService.addOrder(
         customerId: _user!.id,
         link: _urlController.text,
-        size: _selectedSize!.name,
-        qty: _cartItems.totalQuantity > 0 ? _cartItems.totalQuantity : 1,
-        imageFile: imageToSubmit,
-        price: _totalItemPrice > 0 ? _totalItemPrice : null,
-        currencyId: _selectedCurrency?.id,
+        size: _sizeTextController.text.trim().isEmpty ? 'N/A' : _sizeTextController.text.trim(),
+        qty: qty,
+        imageFile: imageToSubmit!,
+        price: price > 0 ? price : null,
         note: orderNote.isNotEmpty ? orderNote : null,
+        subItems: subItems,
       );
 
       if (response['success'] == true) {
@@ -323,9 +501,16 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
             SnackBar(
               content: Text(l10n.orderSubmitted),
               backgroundColor: AppColors.success,
+              duration: const Duration(seconds: 3),
             ),
           );
-          Navigator.pop(context, true);
+          // If pushed as a route (from Home/Store/etc) pop normally.
+          // If embedded as a bottom-nav tab, just reset the form.
+          if (Navigator.canPop(context)) {
+            Navigator.pop(context, true);
+          } else {
+            _resetForm();
+          }
         }
       } else {
         if (mounted) {
@@ -354,6 +539,24 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
     }
   }
 
+  /// Resets all form fields back to initial state (used when screen is a tab, not a pushed route).
+  void _resetForm() {
+    setState(() {
+      _urlController.clear();
+      _notesController.clear();
+      _singlePriceController.clear();
+      _sizeTextController.clear();
+      _mainImage = null;
+      _cartItems = [];
+      _showCartItems = false;
+      _singleItemName = '';
+      _singleSerial = '';
+      _singleQty = 1;
+      _singlePrice = 0.0;
+      _singleProductImageUrl = null;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -366,7 +569,7 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
         elevation: 0,
         title: Text(l10n.newOrder),
         actions: [
-          if (_cartItems.length > 1)
+          if (_showCartItems && _cartItems.length > 1)
             Padding(
               padding: const EdgeInsets.only(right: 16),
               child: Center(
@@ -388,9 +591,13 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
             ),
         ],
       ),
-      body: _isLoading && _sizes.isEmpty
+      body: _isLoading && !mounted
           ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
-          : Form(
+          : Directionality(
+              // Force the entire form to LTR so all inputs behave left-to-right.
+              // Arabic text in item names still renders correctly via BiDi.
+              textDirection: TextDirection.ltr,
+              child: Form(
               key: _formKey,
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(20),
@@ -417,13 +624,13 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
                             )
                           : IconButton(
                               icon: const Icon(Icons.search, color: AppColors.primary),
-                              onPressed: _fetchProductDetails,
+                              onPressed: _onExtractFromLink,
                             ),
                     ),
                     const Padding(
                       padding: EdgeInsets.only(left: 4, top: 6),
                       child: Text(
-                        'Paste SHEIN cart/share link to auto-extract items',
+                        'Paste any product link, then tap Extract. SHEIN links: choose single product or full cart.',
                         style: TextStyle(
                           fontSize: 11,
                           color: AppColors.textSecondary,
@@ -432,108 +639,72 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    
-                    // Extract Cart Button (for SHEIN)
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: _isFetchingProduct ? null : _extractSheinCart,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.secondary,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              elevation: 2,
-                            ),
-                            icon: _isFetchingProduct
-                                ? const SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : const Icon(Icons.auto_awesome, size: 20),
-                            label: Text(
-                              _isFetchingProduct ? 'Extracting...' : 'Auto-Extract from SHEIN Cart',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 14,
-                              ),
-                            ),
+                    // Single "Extract from link" button
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: _isFetchingProduct ? null : _onExtractFromLink,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.secondary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 2,
+                        ),
+                        icon: _isFetchingProduct
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(Icons.link, size: 20),
+                        label: Text(
+                          _isFetchingProduct ? 'Extracting...' : 'Extract from link',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
                           ),
                         ),
-                      ],
+                      ),
                     ),
                     const SizedBox(height: 24),
 
-                    // Cart Items Section
-                    _buildCartItemsSection(l10n),
-                    const SizedBox(height: 24),
+                    // SHEIN cart: show Cart Items. Otherwise: single product (image + details).
+                    if (_showCartItems) ...[
+                      _buildCartItemsSection(l10n),
+                      const SizedBox(height: 24),
+                    ] else ...[
+                      _buildSectionTitle(l10n.productImage),
+                      _buildMainImagePicker(l10n),
+                      const SizedBox(height: 16),
+                      _buildSingleProductFields(l10n),
+                      const SizedBox(height: 24),
+                    ],
 
-                    // Main Product Image (if no cart item images)
-                    _buildSectionTitle(l10n.productImage),
-                    _buildMainImagePicker(l10n),
-                    const SizedBox(height: 20),
-
-                    // Currency Selection
-                    _buildSectionTitle(l10n.currency),
-                    _buildCurrencyDropdown(),
-                    const SizedBox(height: 20),
-
-                    // Size Selection
-                    if (_sizes.isNotEmpty) ...[
+                    // Size — hidden for SHEIN cart (each item has its own size field)
+                    if (!_showCartItems) ...[
                       _buildSectionTitle(l10n.selectSize),
-                      _buildSizeSelector(),
+                      _buildTextField(
+                        controller: _sizeTextController,
+                        hint: 'e.g. M, L, XL, One Size...',
+                      ),
                       const SizedBox(height: 20),
                     ],
 
-                    // Notes
+                    // Notes (allow RTL for Arabic input)
                     _buildSectionTitle(l10n.note),
                     _buildTextField(
                       controller: _notesController,
                       hint: l10n.enterNote,
                       maxLines: 3,
+                      textDirection: TextDirection.rtl,
                     ),
                     const SizedBox(height: 30),
-
-                    // Total Price Display
-                    if (_totalItemPrice > 0)
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(16),
-                        margin: const EdgeInsets.only(bottom: 20),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppColors.primary.withOpacity(0.3)),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              '${l10n.totalPrice} (${_cartItems.totalQuantity} items):',
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                            Text(
-                              '\$${_totalItemPrice.toStringAsFixed(2)}',
-                              style: const TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.primary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
 
                     // Submit Button
                     SizedBox(
@@ -572,6 +743,7 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
                 ),
               ),
             ),
+            ),
     );
   }
 
@@ -603,14 +775,29 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
                         color: AppColors.textPrimary,
                       ),
                     ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '(${_cartItems.length})',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
                   ],
                 ),
+                // Clear all button
                 TextButton.icon(
-                  onPressed: _addCartItem,
-                  icon: const Icon(Icons.add, size: 18),
-                  label: const Text('Add Item'),
+                  onPressed: () {
+                    setState(() {
+                      _cartItems = [];
+                      _showCartItems = false;
+                      _mainImage = null;
+                    });
+                  },
+                  icon: const Icon(Icons.delete_sweep_outlined, size: 18),
+                  label: const Text('Clear all'),
                   style: TextButton.styleFrom(
-                    foregroundColor: AppColors.primary,
+                    foregroundColor: AppColors.error,
                   ),
                 ),
               ],
@@ -639,37 +826,77 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
             itemBuilder: (context, index) => _buildCartItemCard(index, l10n),
           ),
           
-          // Total Row
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.background,
-              borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(16),
-                bottomRight: Radius.circular(16),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSingleProductFields(AppLocalizations l10n) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Product details',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          _buildSmallTextField(
+            hint: 'Serial # (good_sn)',
+            value: _singleSerial,
+            onChanged: (value) => setState(() => _singleSerial = value),
+          ),
+          const SizedBox(height: 10),
+          _buildSmallTextField(
+            hint: 'Item Code/Name',
+            value: _singleItemName,
+            onChanged: (value) => setState(() => _singleItemName = value),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Qty', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        _buildQtyButton(Icons.remove, () {
+                          if (_singleQty > 1) setState(() => _singleQty--);
+                        }),
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            decoration: BoxDecoration(
+                              color: AppColors.background,
+                              border: Border.symmetric(horizontal: BorderSide(color: AppColors.border)),
+                            ),
+                            child: Text(
+                              '$_singleQty',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                            ),
+                          ),
+                        ),
+                        _buildQtyButton(Icons.add, () => setState(() => _singleQty++)),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Total (Item Price):',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                Text(
-                  '\$${_totalItemPrice.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primary,
-                  ),
-                ),
-              ],
-            ),
+            ],
           ),
         ],
       ),
@@ -684,26 +911,14 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Item number and delete button
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Item ${index + 1}',
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.primary,
-                ),
-              ),
-              if (_cartItems.length > 1)
-                IconButton(
-                  onPressed: () => _removeCartItem(index),
-                  icon: const Icon(Icons.delete_outline, color: AppColors.error, size: 20),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
-            ],
+          // Item number
+          Text(
+            'Item ${index + 1}',
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AppColors.primary,
+            ),
           ),
           const SizedBox(height: 12),
           
@@ -782,115 +997,63 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
           ),
           const SizedBox(height: 12),
           
-          // Quantity, Price, Subtotal row
+          // Quantity + Size row (price is stored but hidden from user)
           Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               // Quantity
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Qty', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        _buildQtyButton(Icons.remove, () {
-                          if (item.quantity > 1) {
-                            setState(() {
-                              _cartItems[index] = item.copyWith(quantity: item.quantity - 1);
-                            });
-                          }
-                        }),
-                        Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            decoration: BoxDecoration(
-                              color: AppColors.background,
-                              border: Border.symmetric(
-                                horizontal: BorderSide(color: AppColors.border),
-                              ),
-                            ),
-                            child: Text(
-                              '${item.quantity}',
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                          ),
-                        ),
-                        _buildQtyButton(Icons.add, () {
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Qty', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      _buildQtyButton(Icons.remove, () {
+                        if (item.quantity > 1) {
                           setState(() {
-                            _cartItems[index] = item.copyWith(quantity: item.quantity + 1);
+                            _cartItems[index] = item.copyWith(quantity: item.quantity - 1);
                           });
-                        }),
-                      ],
-                    ),
-                  ],
-                ),
+                        }
+                      }),
+                      Container(
+                        width: 44,
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        decoration: BoxDecoration(
+                          color: AppColors.background,
+                          border: Border.symmetric(horizontal: BorderSide(color: AppColors.border)),
+                        ),
+                        child: Text(
+                          '${item.quantity}',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                        ),
+                      ),
+                      _buildQtyButton(Icons.add, () {
+                        setState(() {
+                          _cartItems[index] = item.copyWith(quantity: item.quantity + 1);
+                        });
+                      }),
+                    ],
+                  ),
+                ],
               ),
               const SizedBox(width: 12),
-              // Price
+              // Size
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Price', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                    const Text('Size', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
                     const SizedBox(height: 4),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: AppColors.background,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: AppColors.border),
-                      ),
-                      child: TextField(
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        style: const TextStyle(color: AppColors.textPrimary, fontSize: 14),
-                        decoration: const InputDecoration(
-                          prefixText: '\$ ',
-                          prefixStyle: TextStyle(color: AppColors.textSecondary),
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                          isDense: true,
-                        ),
-                        controller: TextEditingController(
-                          text: item.price > 0 ? item.price.toStringAsFixed(2) : '',
-                        ),
-                        onChanged: (value) {
-                          setState(() {
-                            _cartItems[index] = item.copyWith(
-                              price: double.tryParse(value) ?? 0,
-                            );
-                          });
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              // Subtotal
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Subtotal', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
-                    const SizedBox(height: 4),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        '\$${item.subtotal.toStringAsFixed(2)}',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.primary,
-                          fontSize: 14,
-                        ),
-                      ),
+                    _buildSmallTextField(
+                      hint: 'e.g. M, L, One Size',
+                      value: item.size ?? '',
+                      onChanged: (value) {
+                        setState(() {
+                          _cartItems[index] = item.copyWith(size: value);
+                        });
+                      },
                     ),
                   ],
                 ),
@@ -929,29 +1092,18 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
     required String hint,
     required String value,
     required ValueChanged<String> onChanged,
+    TextDirection textDirection = TextDirection.ltr,
   }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.background,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: TextField(
-        controller: TextEditingController(text: value),
-        style: const TextStyle(color: AppColors.textPrimary, fontSize: 13),
-        decoration: InputDecoration(
-          hintText: hint,
-          hintStyle: const TextStyle(color: AppColors.textHint, fontSize: 13),
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-          isDense: true,
-        ),
-        onChanged: onChanged,
-      ),
+    return _StableLtrTextField(
+      hint: hint,
+      value: value,
+      onChanged: onChanged,
+      textDirection: textDirection,
     );
   }
 
   Widget _buildMainImagePicker(AppLocalizations l10n) {
+    final hasImage = _mainImage != null || (_singleProductImageUrl != null && _singleProductImageUrl!.isNotEmpty);
     return Container(
       height: 120,
       decoration: BoxDecoration(
@@ -959,19 +1111,32 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.border),
       ),
-      child: _mainImage != null
+      child: hasImage
           ? Stack(
               fit: StackFit.expand,
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12),
-                  child: Image.file(_mainImage!, fit: BoxFit.cover),
+                  child: _mainImage != null
+                      ? Image.file(_mainImage!, fit: BoxFit.cover)
+                      : Image.network(
+                          _singleProductImageUrl!,
+                          fit: BoxFit.cover,
+                          headers: const {
+                            'Referer': 'https://www.shein.com/',
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                          },
+                          errorBuilder: (_, __, ___) => const Icon(Icons.broken_image_outlined, color: AppColors.textSecondary, size: 48),
+                        ),
                 ),
                 Positioned(
                   top: 8,
                   right: 8,
                   child: GestureDetector(
-                    onTap: () => setState(() => _mainImage = null),
+                    onTap: () => setState(() {
+                      _mainImage = null;
+                      _singleProductImageUrl = null;
+                    }),
                     child: Container(
                       padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
@@ -1031,322 +1196,113 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
     TextInputType keyboardType = TextInputType.text,
     int maxLines = 1,
     Widget? suffixIcon,
+    TextDirection textDirection = TextDirection.ltr,
   }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: TextField(
-        controller: controller,
-        keyboardType: keyboardType,
-        maxLines: maxLines,
-        style: const TextStyle(color: AppColors.textPrimary),
-        decoration: InputDecoration(
-          hintText: hint,
-          hintStyle: const TextStyle(color: AppColors.textHint),
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          suffixIcon: suffixIcon,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCurrencyDropdown() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<Currency>(
-          value: _selectedCurrency,
-          isExpanded: true,
-          dropdownColor: AppColors.surface,
-          style: const TextStyle(color: AppColors.textPrimary),
-          icon: const Icon(Icons.arrow_drop_down, color: AppColors.textSecondary),
-          items: _currencies.map((currency) {
-            return DropdownMenuItem(
-              value: currency,
-              child: Text(currency.currencyCode),
-            );
-          }).toList(),
-          onChanged: (value) {
-            setState(() => _selectedCurrency = value);
-          },
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSizeSelector() {
-    return GestureDetector(
-      onTap: () => _showSizeSearchDialog(),
+    return Directionality(
+      textDirection: textDirection,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: _selectedSize != null ? AppColors.primary : AppColors.border,
+          border: Border.all(color: AppColors.border),
+        ),
+        child: TextField(
+          controller: controller,
+          keyboardType: keyboardType,
+          maxLines: maxLines,
+          textDirection: textDirection,
+          textAlign: TextAlign.left,
+          style: const TextStyle(color: AppColors.textPrimary),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: const TextStyle(color: AppColors.textHint),
+            hintTextDirection: textDirection,
+            border: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            suffixIcon: suffixIcon,
           ),
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              _selectedSize?.name ?? 'Select Size...',
-              style: TextStyle(
-                fontSize: 15,
-                color: _selectedSize != null 
-                    ? AppColors.textPrimary 
-                    : AppColors.textHint,
-              ),
-            ),
-            Icon(
-              Icons.keyboard_arrow_down_rounded,
-              color: _selectedSize != null 
-                  ? AppColors.primary 
-                  : AppColors.textSecondary,
-            ),
-          ],
-        ),
       ),
     );
   }
 
-  void _showSizeSearchDialog() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => _SizeSearchSheet(
-        sizes: _sizes,
-        selectedSize: _selectedSize,
-        onSizeSelected: (size) {
-          setState(() => _selectedSize = size);
-          Navigator.pop(context);
-        },
-      ),
-    );
-  }
 }
 
-// Searchable Size Selection Bottom Sheet
-class _SizeSearchSheet extends StatefulWidget {
-  final List<Size> sizes;
-  final Size? selectedSize;
-  final ValueChanged<Size> onSizeSelected;
+/// A text field that keeps its own [TextEditingController] alive across parent
+/// rebuilds, so typing never causes the text to reset or reverse direction.
+class _StableLtrTextField extends StatefulWidget {
+  final String hint;
+  final String value;
+  final ValueChanged<String> onChanged;
+  final TextDirection textDirection;
 
-  const _SizeSearchSheet({
-    required this.sizes,
-    required this.selectedSize,
-    required this.onSizeSelected,
+  const _StableLtrTextField({
+    required this.hint,
+    required this.value,
+    required this.onChanged,
+    this.textDirection = TextDirection.ltr,
   });
 
   @override
-  State<_SizeSearchSheet> createState() => _SizeSearchSheetState();
+  State<_StableLtrTextField> createState() => _StableLtrTextFieldState();
 }
 
-class _SizeSearchSheetState extends State<_SizeSearchSheet> {
-  final _searchController = TextEditingController();
-  List<Size> _filteredSizes = [];
+class _StableLtrTextFieldState extends State<_StableLtrTextField> {
+  late TextEditingController _controller;
 
   @override
   void initState() {
     super.initState();
-    _filteredSizes = widget.sizes;
+    _controller = TextEditingController(text: widget.value);
+  }
+
+  @override
+  void didUpdateWidget(_StableLtrTextField old) {
+    super.didUpdateWidget(old);
+    // Only update the controller when the value changed from OUTSIDE
+    // (e.g. auto-extracted from API), not while the user is typing.
+    if (old.value != widget.value && _controller.text != widget.value) {
+      final selection = _controller.selection;
+      _controller.text = widget.value;
+      // Restore cursor to end or previous position, whichever is valid.
+      final end = widget.value.length;
+      _controller.selection = selection.extentOffset <= end
+          ? selection
+          : TextSelection.collapsed(offset: end);
+    }
   }
 
   @override
   void dispose() {
-    _searchController.dispose();
+    _controller.dispose();
     super.dispose();
-  }
-
-  void _filterSizes(String query) {
-    setState(() {
-      if (query.isEmpty) {
-        _filteredSizes = widget.sizes;
-      } else {
-        _filteredSizes = widget.sizes
-            .where((size) => size.name.toLowerCase().contains(query.toLowerCase()))
-            .toList();
-      }
-    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.7,
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(24),
-          topRight: Radius.circular(24),
+    return Directionality(
+      textDirection: widget.textDirection,
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.background,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppColors.border),
         ),
-      ),
-      child: Column(
-        children: [
-          // Handle bar
-          Container(
-            margin: const EdgeInsets.only(top: 12),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: AppColors.border,
-              borderRadius: BorderRadius.circular(2),
-            ),
+        child: TextField(
+          controller: _controller,
+          textDirection: widget.textDirection,
+          textAlign: TextAlign.left,
+          style: const TextStyle(color: AppColors.textPrimary, fontSize: 13),
+          decoration: InputDecoration(
+            hintText: widget.hint,
+            hintStyle: const TextStyle(color: AppColors.textHint, fontSize: 13),
+            hintTextDirection: widget.textDirection,
+            border: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            isDense: true,
           ),
-          
-          // Title
-          const Padding(
-            padding: EdgeInsets.all(16),
-            child: Text(
-              'Select Size',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
-              ),
-            ),
-          ),
-          
-          // Search Field
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Container(
-              decoration: BoxDecoration(
-                color: AppColors.background,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.border),
-              ),
-              child: TextField(
-                controller: _searchController,
-                autofocus: true,
-                style: const TextStyle(color: AppColors.textPrimary),
-                decoration: InputDecoration(
-                  hintText: 'Search sizes...',
-                  hintStyle: const TextStyle(color: AppColors.textHint),
-                  prefixIcon: const Icon(Icons.search, color: AppColors.textSecondary),
-                  suffixIcon: _searchController.text.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.clear, color: AppColors.textSecondary),
-                          onPressed: () {
-                            _searchController.clear();
-                            _filterSizes('');
-                          },
-                        )
-                      : null,
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                ),
-                onChanged: _filterSizes,
-              ),
-            ),
-          ),
-          
-          const SizedBox(height: 12),
-          
-          // Size count
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                Text(
-                  '${_filteredSizes.length} sizes found',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          
-          const SizedBox(height: 8),
-          
-          // Size List
-          Expanded(
-            child: _filteredSizes.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.search_off_rounded,
-                          size: 48,
-                          color: AppColors.textSecondary.withOpacity(0.5),
-                        ),
-                        const SizedBox(height: 12),
-                        const Text(
-                          'No sizes found',
-                          style: TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: _filteredSizes.length,
-                    itemBuilder: (context, index) {
-                      final size = _filteredSizes[index];
-                      final isSelected = widget.selectedSize?.id == size.id;
-                      
-                      return GestureDetector(
-                        onTap: () => widget.onSizeSelected(size),
-                        child: Container(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                          decoration: BoxDecoration(
-                            color: isSelected 
-                                ? AppColors.primary.withOpacity(0.15) 
-                                : AppColors.background,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: isSelected ? AppColors.primary : AppColors.border,
-                              width: isSelected ? 1.5 : 1,
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  size.name,
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                                    color: isSelected 
-                                        ? AppColors.primary 
-                                        : AppColors.textPrimary,
-                                  ),
-                                ),
-                              ),
-                              if (isSelected)
-                                const Icon(
-                                  Icons.check_circle,
-                                  color: AppColors.primary,
-                                  size: 22,
-                                ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-          ),
-          
-          // Safe area padding
-          SizedBox(height: MediaQuery.of(context).padding.bottom + 16),
-        ],
+          onChanged: widget.onChanged,
+        ),
       ),
     );
   }

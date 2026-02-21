@@ -1,0 +1,191 @@
+NOTIFICATION CENTER - USAGE GUIDE
+=================================
+
+The Notification Center sends BOTH database notifications AND real FCM push notifications to customers.
+
+FILES CREATED:
+--------------
+1. notification_center.php - API endpoint for sending notifications
+2. notification_panel.php - Admin web interface to send notifications
+
+TESTING RESULTS:
+----------------
+✅ Successfully sent notifications to 17 customers with "Processing" orders
+✅ Database notifications saved to 'notifications' table
+✅ FCM push notifications sent to devices with active tokens (customer 853 received on iOS + Android)
+
+USAGE METHODS:
+--------------
+
+METHOD 1: Web Interface (Easiest)
+----------------------------------
+Open in browser: https://ruyadream.com/velox/api/notification_panel.php
+
+Features:
+- Notify customers by order status
+- Send payment reminders
+- Send announcements to all customers
+- Send custom notification to specific customer
+
+METHOD 2: API Calls (For automation/cron jobs)
+-----------------------------------------------
+
+1. NOTIFY BY ORDER STATUS (INDIVIDUAL NOTIFICATIONS PER ORDER):
+   curl -X POST "https://ruyadream.com/velox/api/notification_center.php" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "action": "notify_by_status",
+       "status_id": 2,
+       "title": "Optional custom title",
+       "message": "Optional custom message. Use {order_id}, {status}, {size}, {qty} as placeholders"
+     }'
+
+   IMPORTANT: Each order gets its OWN notification!
+   - If a customer has 5 orders in "Processing", they receive 5 separate notifications
+   - Each notification is specific to one order (e.g., "Your order #2564 is in Processing status")
+   
+   Available Status IDs:
+   - 1: Created
+   - 2: Processing
+   - 3: Approved
+   - 4: In Transit
+   - 16: Purchased
+   - 17: Out-for-delivery
+   etc.
+   
+   Custom Message Placeholders:
+   - {order_id} - Replaced with actual order ID
+   - {status} - Replaced with status name
+   - {size} - Replaced with order size
+   - {qty} - Replaced with quantity
+
+2. PAYMENT REMINDERS:
+   curl -X POST "https://ruyadream.com/velox/api/notification_center.php" \
+     -H "Content-Type: application/json" \
+     -d '{"action": "notify_pending_payments"}'
+
+3. SEND ANNOUNCEMENT TO ALL:
+   curl -X POST "https://ruyadream.com/velox/api/notification_center.php" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "action": "send_announcement",
+       "title": "System Maintenance",
+       "message": "Our system will be down from 2-4 AM"
+     }'
+
+4. CUSTOM NOTIFICATION:
+   curl -X POST "https://ruyadream.com/velox/api/notification_center.php" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "action": "custom_notification",
+       "customer_id": 853,
+       "title": "Special Offer",
+       "message": "Get 10% off your next order!",
+       "type": "general"
+     }'
+
+NOTIFICATION TYPES:
+-------------------
+- order: Order-related notifications
+- payment: Payment confirmations/reminders
+- delivery: Shipping updates
+- system: System announcements
+- account: Account-related
+- general: General notifications
+
+AUTOMATED NOTIFICATIONS:
+------------------------
+To automatically send notifications when order status changes, add to your PHP files:
+
+In accept_order.php, reject_order.php, etc:
+
+require_once 'api/notification_helper.php';
+
+// After order status is updated
+sendOrderNotification($customer_id, $order_id, $status_name);
+
+This will automatically:
+1. Save notification to database
+2. Send FCM push notification (if customer has active tokens)
+
+CRON JOB SETUP (Optional):
+---------------------------
+To send daily payment reminders, add to crontab:
+
+# Send payment reminders every day at 10 AM
+0 10 * * * curl -X POST "https://ruyadream.com/velox/api/notification_center.php" \
+  -H "Content-Type: application/json" \
+  -d '{"action":"notify_pending_payments"}' > /dev/null 2>&1
+
+# Notify processing orders every Monday at 9 AM
+0 9 * * 1 curl -X POST "https://ruyadream.com/velox/api/notification_center.php" \
+  -H "Content-Type: application/json" \
+  -d '{"action":"notify_by_status","status_id":2}' > /dev/null 2>&1
+
+HOW IT WORKS:
+-------------
+1. Query customers based on criteria (status, pending payments, etc)
+2. Create notification in 'notifications' table
+3. Query 'fcm_tokens' table for customer's active device tokens
+4. Send FCM push notification to all active devices
+5. Return detailed results showing success/failure for each customer
+
+RESPONSE FORMAT:
+----------------
+{
+  "success": true,
+  "message": "Sent X individual notifications for orders in status 'Y' to Z customers",
+  "data": {
+    "total_orders": 25,        // Total notifications sent (one per order)
+    "total_customers": 17,     // Unique customers who received notifications
+    "sent": [
+      {
+        "order_id": 2564,
+        "customer_id": 853,
+        "customer_name": "rawa dlshad husen",
+        "result": {
+          "database": true,      // Saved to database
+          "fcm": true,            // FCM sent successfully
+          "notification_id": 16
+        }
+      },
+      {
+        "order_id": 2572,
+        "customer_id": 853,
+        "customer_name": "rawa dlshad husen",
+        "result": {
+          "database": true,
+          "fcm": true,
+          "notification_id": 17
+        }
+      }
+    ],
+    "failed": []
+  }
+}
+
+EXAMPLE: If customer 853 has 6 orders in "Processing" status:
+- They will receive 6 SEPARATE notifications
+- Each notification will say "Your order #XXXX is in Processing status"
+- NOT grouped as "You have 6 orders in Processing"
+
+BENEFITS:
+---------
+✅ Dual notification system (Database + Push)
+✅ Customers see notifications even offline (in app)
+✅ Real-time push notifications when online
+✅ Individual notifications per order (not grouped)
+✅ Each notification is specific and actionable
+✅ Detailed logging of what was sent
+✅ Easy to use web interface
+✅ API for automation
+✅ Custom message placeholders for personalization
+
+TESTED:
+-------
+✅ Sent to 17 customers with Processing orders
+✅ Database notifications created
+✅ FCM push sent to customer 853's iOS and Android devices
+✅ All notification types working
+✅ Web interface functional
+

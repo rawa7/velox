@@ -1,0 +1,139 @@
+SIZES API - USAGE GUIDE
+========================
+
+ENDPOINT: /api/sizes.php
+
+METHOD: GET
+
+DESCRIPTION: Retrieve all sizes from the database
+
+
+USAGE:
+------
+
+1. GET ALL SIZES:
+   http://ruyadream.com/velox/api/sizes.php
+
+2. SEARCH SIZES:
+   http://ruyadream.com/velox/api/sizes.php?search=XL
+
+
+EXAMPLES:
+---------
+
+1. cURL - Get all sizes:
+   curl "http://ruyadream.com/velox/api/sizes.php"
+
+2. cURL - Search for sizes containing "XL":
+   curl "http://ruyadream.com/velox/api/sizes.php?search=XL"
+
+3. Flutter/Dart:
+   final response = await http.get(
+     Uri.parse('http://ruyadream.com/velox/api/sizes.php')
+   );
+   final data = json.decode(response.body);
+   List sizes = data['data']['sizes'];
+
+4. JavaScript:
+   fetch('http://ruyadream.com/velox/api/sizes.php')
+     .then(res => res.json())
+     .then(data => console.log(data.data.sizes));
+
+
+RESPONSE FORMAT:
+----------------
+
+{
+  "success": true,
+  "message": "Sizes retrieved successfully.",
+  "data": {
+    "sizes": [
+      {"id": 1, "name": "XL"},
+      {"id": 2, "name": "SMALL"},
+      {"id": 3, "name": "MEDIUM"},
+      ...
+    ],
+    "count": 914
+  }
+}
+
+
+PARAMETERS:
+-----------
+
+- search (optional): Filter sizes by name
+  Example: ?search=XL
+
+
+TESTED RESULTS:
+---------------
+
+✅ Total sizes in database: 914
+✅ All sizes retrieved successfully
+✅ Search functionality working
+✅ Search for "XL": Found 24 matching sizes
+
+
+FLUTTER EXAMPLE:
+----------------
+
+// Model
+class SizeModel {
+  final int id;
+  final String name;
+
+  SizeModel({required this.id, required this.name});
+
+  factory SizeModel.fromJson(Map<String, dynamic> json) {
+    return SizeModel(
+      id: json['id'],
+      name: json['name'],
+    );
+  }
+}
+
+// Service
+Future<List<SizeModel>> fetchSizes({String? search}) async {
+  String url = 'http://ruyadream.com/velox/api/sizes.php';
+  
+  if (search != null && search.isNotEmpty) {
+    url += '?search=$search';
+  }
+  
+  final response = await http.get(Uri.parse(url));
+  
+  if (response.statusCode == 200) {
+    final data = json.decode(response.body);
+    if (data['success']) {
+      return (data['data']['sizes'] as List)
+          .map((json) => SizeModel.fromJson(json))
+          .toList();
+    }
+  }
+  
+  throw Exception('Failed to load sizes');
+}
+
+// Usage in Widget
+List<SizeModel> sizes = await fetchSizes();
+List<SizeModel> xlSizes = await fetchSizes(search: 'XL');
+
+
+COMMON USE CASES:
+-----------------
+
+1. Dropdown list in Flutter app
+2. Size selection for products
+3. Filter products by size
+4. Search functionality
+5. Auto-complete for size input
+
+
+NOTES:
+------
+
+- Sizes are ordered alphabetically by name
+- Search is case-insensitive (uses LIKE)
+- Returns empty array if no sizes found
+- Total count always provided in response
+

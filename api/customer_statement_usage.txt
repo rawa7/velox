@@ -1,0 +1,174 @@
+CUSTOMER STATEMENT API - USAGE GUIDE
+====================================
+
+ENDPOINT: /api/customer_statement.php
+METHOD: GET
+
+DESCRIPTION:
+This API provides comprehensive customer account statement data including:
+- Customer details
+- Financial summary (balance, payments, completed purchases)
+- Pending items (orders not yet completed)
+- Completed items (sold/delivered items - status -2)
+- Refunded items (status -3)
+- Payment history
+- Status breakdown
+
+PARAMETERS:
+-----------
+1. customer_id (required) - The ID of the customer
+2. date_from (optional) - Filter from this date (format: YYYY-MM-DD)
+3. date_to (optional) - Filter to this date (format: YYYY-MM-DD)
+
+IMPORTANT NOTES:
+----------------
+- Balance calculation: ONLY completed items (status = -2) are counted in balance
+- Balance = Total Completed Items Value - Total Payments
+- Pending items are shown separately and NOT included in balance calculation
+- Refunded items (status = -3) are also excluded from balance
+- Positive balance = Customer owes money (Due)
+- Negative balance = Customer has credit (Overpaid)
+- Zero balance = Account is settled
+
+EXAMPLES:
+---------
+
+1. GET FULL STATEMENT (NO DATE FILTER):
+   curl "https://ruyadream.com/velox/api/customer_statement.php?customer_id=853"
+
+2. GET STATEMENT WITH DATE RANGE:
+   curl "https://ruyadream.com/velox/api/customer_statement.php?customer_id=853&date_from=2025-01-01&date_to=2025-10-18"
+
+3. GET STATEMENT FROM SPECIFIC DATE:
+   curl "https://ruyadream.com/velox/api/customer_statement.php?customer_id=853&date_from=2025-09-01"
+
+RESPONSE STRUCTURE:
+-------------------
+{
+  "success": true,
+  "message": "Customer statement retrieved successfully.",
+  "data": {
+    "customer": {
+      "id": 853,
+      "name": "John Doe",
+      "email": "john@example.com",
+      "phone": "+1234567890",
+      "address": "123 Main St",
+      "usertype": "Premium",
+      "debt_limit": 1000.00
+    },
+    "financial_summary": {
+      "completed_purchases_value": 2150.50,
+      "total_payments": 1500.00,
+      "current_balance": 650.50,
+      "balance_status": "due",
+      "pending_items_value": 350.00,
+      "refunded_items_value": 100.00,
+      "orders_awaiting_payment": 500.00,
+      "available_capacity": 849.50
+    },
+    "items_summary": {
+      "total_items": 25,
+      "pending_count": 10,
+      "completed_count": 13,
+      "refunded_count": 2,
+      "status_breakdown": [
+        {
+          "id": 1,
+          "name": "Created",
+          "count": 3,
+          "total": 150.00
+        },
+        ...
+      ]
+    },
+    "pending_items": [
+      {
+        "id": 2564,
+        "serial": "ORD-001",
+        "status": 2,
+        "status_name": "Processing",
+        "itemprice": 50.00,
+        "totalprice": 55.00,
+        "shippingprice": 5.00,
+        "cargo": 0.00,
+        "tax": 0.00,
+        "commission": 0.00,
+        "qty": 1,
+        "size": "M",
+        "paymentstatus": 0,
+        "website_name": "Amazon",
+        "image_url": "https://ruyadream.com/velox/uploads/image.jpg",
+        "created_at": "2025-10-15 14:30:00",
+        ...
+      }
+    ],
+    "completed_items": [
+      {
+        "id": 2560,
+        "status": -2,
+        "status_name": "Sold",
+        "totalprice": 100.00,
+        ...
+      }
+    ],
+    "refunded_items": [
+      {
+        "id": 2555,
+        "status": -3,
+        "status_name": "Refunded",
+        "totalprice": 50.00,
+        ...
+      }
+    ],
+    "payments": [
+      {
+        "id": 150,
+        "buyerid": 853,
+        "buyer_name": "John Doe",
+        "amount": 500.00,
+        "dinarconvert": 1320.00,
+        "date": "2025-10-10",
+        "note": "Cash payment"
+      }
+    ],
+    "filters": {
+      "date_from": null,
+      "date_to": null
+    }
+  }
+}
+
+BALANCE STATUS VALUES:
+----------------------
+- "due" - Customer owes money (positive balance)
+- "overpaid" - Customer has credit (negative balance)
+- "settled" - Account is balanced (zero balance)
+
+FLUTTER INTEGRATION EXAMPLE:
+-----------------------------
+See customer_statement_flutter_example.dart for complete implementation.
+
+ERROR RESPONSES:
+----------------
+1. Missing customer_id:
+   Status: 401
+   {
+     "success": false,
+     "message": "Customer ID is required. Please provide customer_id in request."
+   }
+
+2. Customer not found:
+   Status: 404
+   {
+     "success": false,
+     "message": "Customer not found."
+   }
+
+3. Database error:
+   Status: 500
+   {
+     "success": false,
+     "message": "Database error occurred: [error details]"
+   }
+

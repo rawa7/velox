@@ -243,6 +243,7 @@ class _AccountScreenState extends State<AccountScreen> {
                     _buildSection(
                       title: l10n.settings,
                       children: [
+                        _buildThemeToggle(),
                         _buildMenuItem(
                           icon: Icons.language_outlined,
                           title: l10n.language,
@@ -502,6 +503,41 @@ class _AccountScreenState extends State<AccountScreen> {
           ),
           ...children,
         ],
+      ),
+    );
+  }
+
+  Widget _buildThemeToggle() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 2),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: ListTile(
+        leading: Icon(
+          isDark ? Icons.dark_mode_outlined : Icons.light_mode_outlined,
+          color: AppColors.primary,
+          size: 22,
+        ),
+        title: Text(
+          isDark ? 'Dark Mode' : 'Light Mode',
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurface,
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        trailing: Switch(
+          value: isDark,
+          activeColor: AppColors.primary,
+          onChanged: (val) {
+            final mode = val ? ThemeMode.dark : ThemeMode.light;
+            MyApp.setThemeMode(context, mode);
+          },
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }

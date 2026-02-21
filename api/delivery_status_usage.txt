@@ -1,0 +1,207 @@
+DELIVERY STATUS API - USAGE GUIDE
+==================================
+
+ENDPOINT: /api/delivery_status.php
+METHODS: GET, POST, PUT
+
+DESCRIPTION:
+This API allows you to view and change the delivery status for customers.
+- delivery = 1: Delivery Yes (delivery enabled)
+- delivery = 0: Delivery No (delivery disabled)
+
+================================================================================
+1. VIEW DELIVERY STATUS (GET REQUEST)
+================================================================================
+
+METHOD: GET
+PARAMETERS:
+- customer_id (required): The ID of the customer
+
+EXAMPLE:
+--------
+curl "https://ruyadream.com/velox/api/delivery_status.php?customer_id=853"
+
+SUCCESS RESPONSE:
+-----------------
+Status: 200 OK
+{
+  "success": true,
+  "message": "Delivery status retrieved successfully.",
+  "data": {
+    "customer_id": 853,
+    "name": "John Doe",
+    "phone": "+1234567890",
+    "delivery_status": 1,
+    "delivery_enabled": true,
+    "delivery_text": "Delivery Yes"
+  }
+}
+
+================================================================================
+2. UPDATE DELIVERY STATUS (POST/PUT REQUEST)
+================================================================================
+
+METHOD: POST or PUT
+CONTENT-TYPE: application/json
+
+REQUIRED FIELDS:
+----------------
+- customer_id (integer): The ID of the customer
+- delivery_status (integer): 0 (No) or 1 (Yes)
+
+EXAMPLES:
+---------
+
+1. ENABLE DELIVERY (Set to Yes):
+   curl -X POST "https://ruyadream.com/velox/api/delivery_status.php" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "customer_id": 853,
+       "delivery_status": 1
+     }'
+
+2. DISABLE DELIVERY (Set to No):
+   curl -X POST "https://ruyadream.com/velox/api/delivery_status.php" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "customer_id": 853,
+       "delivery_status": 0
+     }'
+
+3. USING PUT METHOD:
+   curl -X PUT "https://ruyadream.com/velox/api/delivery_status.php" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "customer_id": 853,
+       "delivery_status": 1
+     }'
+
+SUCCESS RESPONSE:
+-----------------
+Status: 200 OK
+{
+  "success": true,
+  "message": "Delivery status updated successfully from No to Yes.",
+  "data": {
+    "customer_id": 853,
+    "name": "John Doe",
+    "phone": "+1234567890",
+    "old_status": 0,
+    "new_status": 1,
+    "delivery_enabled": true,
+    "delivery_text": "Delivery Yes"
+  }
+}
+
+================================================================================
+ERROR RESPONSES
+================================================================================
+
+1. Missing Customer ID:
+   Status: 400 Bad Request
+   {
+     "success": false,
+     "message": "Customer ID is required. Please provide customer_id in request."
+   }
+
+2. Missing Delivery Status:
+   Status: 400 Bad Request
+   {
+     "success": false,
+     "message": "Delivery status is required. Use 0 (No) or 1 (Yes)."
+   }
+
+3. Invalid Delivery Status Value:
+   Status: 400 Bad Request
+   {
+     "success": false,
+     "message": "Invalid delivery status. Must be 0 (No) or 1 (Yes)."
+   }
+
+4. Customer Not Found:
+   Status: 404 Not Found
+   {
+     "success": false,
+     "message": "Customer not found."
+   }
+
+5. Status Already Set:
+   Status: 200 OK
+   {
+     "success": true,
+     "message": "Delivery status is already set to Yes.",
+     "data": {
+       "customer_id": 853,
+       "name": "John Doe",
+       "phone": "+1234567890",
+       "old_status": 1,
+       "new_status": 1,
+       "delivery_enabled": true,
+       "delivery_text": "Delivery Yes"
+     }
+   }
+
+6. Invalid Method:
+   Status: 405 Method Not Allowed
+   {
+     "success": false,
+     "message": "Method not allowed. Only GET, POST, and PUT requests are accepted."
+   }
+
+7. Database Error:
+   Status: 500 Internal Server Error
+   {
+     "success": false,
+     "message": "Failed to update delivery status: [error details]"
+   }
+
+================================================================================
+FIELD DESCRIPTIONS
+================================================================================
+
+- customer_id: Unique identifier for the customer
+- name: Customer's name
+- phone: Customer's phone number
+- delivery_status: Integer value (0 or 1)
+- delivery_enabled: Boolean value (true/false)
+- delivery_text: Human-readable text ("Delivery Yes" or "Delivery No")
+- old_status: Previous delivery status (before update)
+- new_status: New delivery status (after update)
+
+================================================================================
+DELIVERY STATUS VALUES
+================================================================================
+
+VALUE | MEANING          | BOOLEAN | TEXT
+------|------------------|---------|-------------
+  0   | Delivery No      | false   | Delivery No
+  1   | Delivery Yes     | true    | Delivery Yes
+
+================================================================================
+USE CASES
+================================================================================
+
+1. Check if delivery is available for a customer
+2. Enable delivery for a customer
+3. Disable delivery for a customer
+4. Toggle delivery status on/off
+5. Display delivery status in customer profile
+6. Control delivery options in order placement
+
+================================================================================
+FLUTTER INTEGRATION
+================================================================================
+
+See delivery_status_flutter_example.dart for complete implementation.
+
+================================================================================
+NOTES
+================================================================================
+
+- The delivery field in the buyer table is used to control delivery availability
+- Only values 0 and 1 are accepted
+- The API returns both numeric and boolean representations for flexibility
+- If the status is already set to the requested value, the API returns success without making changes
+- Both POST and PUT methods can be used for updates (they work the same way)
+- GET method is used to retrieve the current status
+
