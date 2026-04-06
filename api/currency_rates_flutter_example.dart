@@ -68,7 +68,7 @@ class CurrencyRatesResponse {
 // ============================================================================
 
 class CurrencyRatesService {
-  static const String baseUrl = 'https://ruyadream.com/velox/api';
+  static const String baseUrl = 'https://veloxshoppingiq.com/api';
 
   /// Fetch all currency rates
   static Future<CurrencyRatesResponse> getCurrencyRates({String? search}) async {

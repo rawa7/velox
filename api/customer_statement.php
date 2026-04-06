@@ -108,7 +108,7 @@ $refunded_items_value = 0;
 while ($item = mysqli_fetch_assoc($items_result)) {
     // Add full image URL
     if (!empty($item['image_path'])) {
-        $item['image_url'] = 'https://ruyadream.com/velox' . $item['image_path'];
+        $item['image_url'] = 'https://veloxshoppingiq.com' . $item['image_path'];
     } else {
         $item['image_url'] = null;
     }

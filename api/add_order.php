@@ -216,10 +216,10 @@ if ($price > 0) {
     $insert_values .= ", $price";
 }
 
-// Add totalprice if calculated
+// Add totalprice and total_dinar if calculated (app displays total_dinar)
 if ($totalprice > 0) {
-    $insert_fields .= ", totalprice";
-    $insert_values .= ", $totalprice";
+    $insert_fields .= ", totalprice, total_dinar";
+    $insert_values .= ", $totalprice, " . round($totalprice, 0);
 }
 
 // Add currency_id if provided
@@ -369,7 +369,7 @@ $order = mysqli_fetch_assoc($order_result);
 
 // Add full image URL
 if (!empty($order['web_path'])) {
-    $order['image_url'] = 'https://ruyadream.com/velox' . $order['web_path'];
+    $order['image_url'] = 'https://veloxshoppingiq.com' . $order['web_path'];
 } else {
     $order['image_url'] = null;
 }

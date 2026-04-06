@@ -15,7 +15,7 @@ import '../models/customer_statement_model.dart';
 import '../models/delivery_status_model.dart';
 
 class ApiService {
-  static const String baseUrl = 'https://ruyadream.com/velox/api';
+  static const String baseUrl = 'https://veloxshoppingiq.com/api';
 
   // Login API call
   static Future<Map<String, dynamic>> login(

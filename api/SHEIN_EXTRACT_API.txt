@@ -2,7 +2,7 @@
 SHEIN CART EXTRACTION API - DOCUMENTATION
 ================================================================================
 
-Endpoint: https://ruyadream.com/velox/api/shein_extract.php
+Endpoint: https://veloxshoppingiq.com/api/shein_extract.php
 Method: POST or GET
 Authentication: NOT REQUIRED (Public API)
 Content-Type: application/json
@@ -32,7 +32,7 @@ shein_link (string, required):
 REQUEST EXAMPLE (POST)
 ================================================================================
 
-POST https://ruyadream.com/velox/api/shein_extract.php
+POST https://veloxshoppingiq.com/api/shein_extract.php
 Content-Type: application/json
 
 {
@@ -43,7 +43,7 @@ Content-Type: application/json
 REQUEST EXAMPLE (GET)
 ================================================================================
 
-GET https://ruyadream.com/velox/api/shein_extract.php?shein_link=http://api-shein.shein.com/h5/sharejump/appjump?link=...
+GET https://veloxshoppingiq.com/api/shein_extract.php?shein_link=http://api-shein.shein.com/h5/sharejump/appjump?link=...
 
 ================================================================================
 SUCCESS RESPONSE (HTTP 200)
@@ -108,7 +108,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class SheinExtractService {
-  static const String baseUrl = 'https://ruyadream.com/velox/api';
+  static const String baseUrl = 'https://veloxshoppingiq.com/api';
   
   // Extract items from SHEIN cart link
   static Future<Map<String, dynamic>> extractCart(String sheinLink) async {
@@ -328,7 +328,7 @@ class _SheinExtractPageState extends State<SheinExtractPage> {
 TESTING
 ================================================================================
 
-Test Page: https://ruyadream.com/velox/api/test_shein_extract.html
+Test Page: https://veloxshoppingiq.com/api/test_shein_extract.html
 
 You can test the API directly in your browser before implementing in Flutter.
 

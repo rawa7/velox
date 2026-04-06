@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../constants/app_colors.dart';
+import '../constants/currency.dart';
 import '../services/api_service.dart';
 import '../services/storage_service.dart';
 import '../models/user_model.dart';
@@ -145,12 +146,12 @@ class _StoreScreenState extends State<StoreScreen> {
     final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: context.scaffoldBg,
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: _loadData,
           color: AppColors.primary,
-          backgroundColor: AppColors.surface,
+          backgroundColor: context.surfaceColor,
           child: CustomScrollView(
             slivers: [
               // Store Header
@@ -179,10 +180,10 @@ class _StoreScreenState extends State<StoreScreen> {
                       const SizedBox(width: 12),
                       Text(
                         l10n.store,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary,
+                          color: context.textPrimaryColor,
                         ),
                       ),
                     ],
@@ -202,6 +203,7 @@ class _StoreScreenState extends State<StoreScreen> {
                       itemCount: _shopBanners.length,
                       itemBuilder: (context, index) {
                         final banner = _shopBanners[index];
+                        final imageUrl = banner.bannerImage.isNotEmpty ? banner.bannerImage : banner.productImage;
                         return GestureDetector(
                           onTap: () {
                             // Find product and navigate
@@ -227,9 +229,9 @@ class _StoreScreenState extends State<StoreScreen> {
                               child: Stack(
                                 fit: StackFit.expand,
                                 children: [
-                                  if (banner.bannerImage.isNotEmpty)
+                                  if (imageUrl.isNotEmpty)
                                     Image.network(
-                                      banner.bannerImage,
+                                      imageUrl,
                                       fit: BoxFit.cover,
                                       errorBuilder: (_, __, ___) => const SizedBox(),
                                     ),
@@ -285,7 +287,7 @@ class _StoreScreenState extends State<StoreScreen> {
               if (_brands.isNotEmpty && _user != null && _user!.isBronzeAccount != true)
                 SliverToBoxAdapter(
                   child: Container(
-                    height: 90,
+                    height: 100,
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     child: ListView(
                       scrollDirection: Axis.horizontal,
@@ -334,18 +336,18 @@ class _StoreScreenState extends State<StoreScreen> {
                   padding: const EdgeInsets.all(20),
                   child: Container(
                     decoration: BoxDecoration(
-                      color: AppColors.surface,
+                      color: context.surfaceColor,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.border),
+                      border: Border.all(color: context.borderColor),
                     ),
                     child: TextField(
                       controller: _searchController,
                       onChanged: (value) => _applySearch(),
-                      style: const TextStyle(color: AppColors.textPrimary),
+                      style: TextStyle(color: context.textPrimaryColor),
                       decoration: InputDecoration(
                         hintText: l10n.searchProducts,
-                        hintStyle: const TextStyle(color: AppColors.textHint),
-                        prefixIcon: const Icon(Icons.search, color: AppColors.textSecondary),
+                        hintStyle: TextStyle(color: context.textSecondaryColor),
+                        prefixIcon: Icon(Icons.search, color: context.textSecondaryColor),
                         border: InputBorder.none,
                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                       ),
@@ -369,13 +371,13 @@ class _StoreScreenState extends State<StoreScreen> {
                         Icon(
                           Icons.shopping_bag_outlined,
                           size: 64,
-                          color: AppColors.textSecondary.withOpacity(0.5),
+                          color: context.textSecondaryColor.withOpacity(0.5),
                         ),
                         const SizedBox(height: 16),
                         Text(
                           l10n.noProductsFound,
-                          style: const TextStyle(
-                            color: AppColors.textSecondary,
+                          style: TextStyle(
+                            color: context.textSecondaryColor,
                             fontSize: 16,
                           ),
                         ),
@@ -419,45 +421,50 @@ class _StoreScreenState extends State<StoreScreen> {
         margin: const EdgeInsets.only(right: 12),
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              width: 50,
-              height: 50,
+              width: 48,
+              height: 48,
               decoration: BoxDecoration(
-                color: isSelected ? AppColors.primary.withOpacity(0.2) : AppColors.surface,
+                color: isSelected ? AppColors.primary.withOpacity(0.2) : context.surfaceColor,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: isSelected ? AppColors.primary : AppColors.border,
+                  color: isSelected ? AppColors.primary : context.borderColor,
                   width: isSelected ? 2 : 1,
                 ),
               ),
               child: imageUrl != null && imageUrl.isNotEmpty
                   ? ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(8),
                       child: Image.network(
                         imageUrl,
                         fit: BoxFit.cover,
                         errorBuilder: (_, __, ___) => Icon(
                           Icons.shopping_bag,
-                          color: isSelected ? AppColors.primary : AppColors.textSecondary,
+                          color: isSelected ? AppColors.primary : context.textSecondaryColor,
                         ),
                       ),
                     )
                   : Icon(
                       Icons.apps,
-                      color: isSelected ? AppColors.primary : AppColors.textSecondary,
+                      color: isSelected ? AppColors.primary : context.textSecondaryColor,
                     ),
             ),
-            const SizedBox(height: 6),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                color: isSelected ? AppColors.primary : AppColors.textSecondary,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            const SizedBox(height: 4),
+            SizedBox(
+              width: 52,
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: isSelected ? AppColors.primary : context.textSecondaryColor,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
@@ -476,15 +483,15 @@ class _StoreScreenState extends State<StoreScreen> {
         label: Text(label),
         selected: isSelected,
         onSelected: (_) => onTap(),
-        backgroundColor: AppColors.surface,
+        backgroundColor: context.surfaceColor,
         selectedColor: AppColors.primary.withOpacity(0.2),
         labelStyle: TextStyle(
-          color: isSelected ? AppColors.primary : AppColors.textSecondary,
+          color: isSelected ? AppColors.primary : context.textSecondaryColor,
           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
         ),
         checkmarkColor: AppColors.primary,
         side: BorderSide(
-          color: isSelected ? AppColors.primary : AppColors.border,
+          color: isSelected ? AppColors.primary : context.borderColor,
         ),
       ),
     );
@@ -495,9 +502,9 @@ class _StoreScreenState extends State<StoreScreen> {
       onTap: () => _navigateToProductDetail(item),
       child: Container(
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: context.surfaceColor,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.border),
+          border: Border.all(color: context.borderColor),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -507,7 +514,7 @@ class _StoreScreenState extends State<StoreScreen> {
               flex: 3,
               child: Container(
                 decoration: BoxDecoration(
-                  color: AppColors.background,
+                  color: context.cardColor,
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                 ),
                 child: ClipRRect(
@@ -516,10 +523,10 @@ class _StoreScreenState extends State<StoreScreen> {
                     item.imagePath,
                     fit: BoxFit.cover,
                     width: double.infinity,
-                    errorBuilder: (_, __, ___) => const Center(
+                    errorBuilder: (_, __, ___) => Center(
                       child: Icon(
                         Icons.image_not_supported,
-                        color: AppColors.textSecondary,
+                        color: context.textSecondaryColor,
                         size: 40,
                       ),
                     ),
@@ -537,10 +544,10 @@ class _StoreScreenState extends State<StoreScreen> {
                   children: [
                     Text(
                       item.itemName,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
+                        color: context.textPrimaryColor,
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -550,7 +557,7 @@ class _StoreScreenState extends State<StoreScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          '\$${NumberFormat('#,##0.00').format(item.price)}',
+                          AppCurrency.format(item.price),
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,

@@ -307,7 +307,7 @@ class DateFilters {
 // ============================================================================
 
 class CustomerStatementService {
-  static const String baseUrl = 'https://ruyadream.com/velox/api';
+  static const String baseUrl = 'https://veloxshoppingiq.com/api';
 
   static Future<CustomerStatement> getStatement(
     int customerId, {

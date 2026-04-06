@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
+import '../constants/currency.dart';
 import '../services/api_service.dart';
 import '../services/storage_service.dart';
 import '../models/user_model.dart';
@@ -7,8 +8,18 @@ import '../models/order_model.dart';
 import '../generated/app_localizations.dart';
 import 'order_detail_screen.dart';
 
+/// Tab index for My Orders in [MainNavigation].
+const int kMyOrdersTabIndex = 3;
+
 class MyOrdersScreen extends StatefulWidget {
-  const MyOrdersScreen({super.key});
+  const MyOrdersScreen({
+    super.key,
+    this.selectedTabIndex = 0,
+    this.myTabIndex = kMyOrdersTabIndex,
+  });
+
+  final int selectedTabIndex;
+  final int myTabIndex;
 
   @override
   State<MyOrdersScreen> createState() => _MyOrdersScreenState();
@@ -26,6 +37,16 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> with SingleTickerProvid
   void initState() {
     super.initState();
     _loadData();
+  }
+
+  @override
+  void didUpdateWidget(MyOrdersScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final wasVisible = oldWidget.selectedTabIndex == oldWidget.myTabIndex;
+    final isVisible = widget.selectedTabIndex == widget.myTabIndex;
+    if (!wasVisible && isVisible) {
+      _loadData();
+    }
   }
 
   Future<void> _loadData() async {
@@ -64,7 +85,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> with SingleTickerProvid
     });
   }
 
-  Color _getStatusColor(String status) {
+  Color _getStatusColor(BuildContext context, String status) {
     switch (status.toLowerCase()) {
       case '1': // Pending
         return AppColors.warning;
@@ -75,7 +96,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> with SingleTickerProvid
       case '4': // Cancelled
         return AppColors.error;
       default:
-        return AppColors.textSecondary;
+        return context.textSecondaryColor;
     }
   }
 
@@ -99,17 +120,17 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> with SingleTickerProvid
     final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: context.scaffoldBg,
       appBar: AppBar(
-        backgroundColor: AppColors.surface,
-        foregroundColor: AppColors.textPrimary,
+        backgroundColor: context.surfaceColor,
+        foregroundColor: context.textPrimaryColor,
         elevation: 0,
         title: Text(l10n.myOrders),
       ),
       body: RefreshIndicator(
         onRefresh: _loadData,
         color: AppColors.primary,
-        backgroundColor: AppColors.surface,
+        backgroundColor: context.surfaceColor,
         child: _isLoading
             ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
             : Column(
@@ -133,12 +154,12 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> with SingleTickerProvid
                   // Orders List
                   Expanded(
                     child: _filteredOrders.isEmpty
-                        ? _buildEmptyState(l10n)
+                        ? _buildEmptyState(context, l10n)
                         : ListView.builder(
                             padding: const EdgeInsets.all(16),
                             itemCount: _filteredOrders.length,
-                            itemBuilder: (context, index) {
-                              return _buildOrderCard(_filteredOrders[index], l10n);
+                            itemBuilder: (ctx, index) {
+                              return _buildOrderCard(ctx, _filteredOrders[index], l10n);
                             },
                           ),
                   ),
@@ -156,21 +177,21 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> with SingleTickerProvid
         label: Text(label),
         selected: isSelected,
         onSelected: (_) => _filterOrders(status),
-        backgroundColor: AppColors.surface,
+        backgroundColor: context.surfaceColor,
         selectedColor: AppColors.primary.withOpacity(0.2),
         labelStyle: TextStyle(
-          color: isSelected ? AppColors.primary : AppColors.textSecondary,
+          color: isSelected ? AppColors.primary : context.textSecondaryColor,
           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
         ),
         checkmarkColor: AppColors.primary,
         side: BorderSide(
-          color: isSelected ? AppColors.primary : AppColors.border,
+          color: isSelected ? AppColors.primary : context.borderColor,
         ),
       ),
     );
   }
 
-  Widget _buildEmptyState(AppLocalizations l10n) {
+  Widget _buildEmptyState(BuildContext context, AppLocalizations l10n) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -178,14 +199,14 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> with SingleTickerProvid
           Icon(
             Icons.receipt_long_outlined,
             size: 80,
-            color: AppColors.textSecondary.withOpacity(0.5),
+            color: context.textSecondaryColor.withOpacity(0.5),
           ),
           const SizedBox(height: 20),
           Text(
             l10n.noOrdersFound,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 18,
-              color: AppColors.textSecondary,
+              color: context.textSecondaryColor,
             ),
           ),
         ],
@@ -193,28 +214,26 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> with SingleTickerProvid
     );
   }
 
-  Widget _buildOrderCard(Order order, AppLocalizations l10n) {
-    final statusColor = _getStatusColor(order.status);
+  Widget _buildOrderCard(BuildContext context, Order order, AppLocalizations l10n) {
+    final statusColor = _getStatusColor(context, order.status);
     final statusIcon = _getStatusIcon(order.status);
 
     return GestureDetector(
       onTap: () async {
-        final result = await Navigator.push(
+        await Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => OrderDetailScreen(order: order),
+            builder: (context) => OrderDetailScreen(order: order, currentUser: _user),
           ),
         );
-        if (result == true) {
-          _loadData();
-        }
+        _loadData();
       },
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: context.surfaceColor,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.border),
+          border: Border.all(color: context.borderColor),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -229,7 +248,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> with SingleTickerProvid
                     width: 70,
                     height: 70,
                     decoration: BoxDecoration(
-                      color: AppColors.background,
+                      color: context.cardColor,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: ClipRRect(
@@ -238,14 +257,14 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> with SingleTickerProvid
                           ? Image.network(
                               order.imageUrl,
                               fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => const Icon(
+                              errorBuilder: (_, __, ___) => Icon(
                                 Icons.shopping_bag_outlined,
-                                color: AppColors.textSecondary,
+                                color: context.textSecondaryColor,
                               ),
                             )
-                          : const Icon(
+                          : Icon(
                               Icons.shopping_bag_outlined,
-                              color: AppColors.textSecondary,
+                              color: context.textSecondaryColor,
                             ),
                     ),
                   ),
@@ -257,26 +276,26 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> with SingleTickerProvid
                       children: [
                         Text(
                           '${l10n.order} #${order.serial}',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
-                            color: AppColors.textPrimary,
+                            color: context.textPrimaryColor,
                           ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 6),
-                        if (order.websiteName != null)
+                        if (order.websiteName != null && !(_user?.isSilverAccount ?? false))
                           Text(
                             order.websiteName!,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12,
-                              color: AppColors.textSecondary,
+                              color: context.textSecondaryColor,
                             ),
                           ),
                         const SizedBox(height: 4),
                         Text(
-                          '\$${order.totalPrice}',
+                          AppCurrency.format(order.displayTotal),
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -292,7 +311,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> with SingleTickerProvid
             // Divider
             Container(
               height: 1,
-              color: AppColors.border,
+              color: context.borderColor,
             ),
             // Order Footer
             Padding(
@@ -329,9 +348,9 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> with SingleTickerProvid
                   // Date
                   Text(
                     order.date,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
-                      color: AppColors.textSecondary,
+                      color: context.textSecondaryColor,
                     ),
                   ),
                 ],

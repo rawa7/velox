@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
+import '../constants/currency.dart';
 import '../services/storage_service.dart';
 import '../services/language_service.dart';
 import '../services/api_service.dart';
@@ -56,10 +57,10 @@ class _AccountScreenState extends State<AccountScreen> {
     
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        title: Text(l10n.logout, style: const TextStyle(color: AppColors.textPrimary)),
-        content: Text(l10n.areYouSureLogout, style: const TextStyle(color: AppColors.textSecondary)),
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Theme.of(ctx).colorScheme.surface,
+        title: Text(l10n.logout, style: TextStyle(color: Theme.of(ctx).colorScheme.onSurface)),
+        content: Text(l10n.areYouSureLogout, style: TextStyle(color: Theme.of(ctx).colorScheme.onSurface.withOpacity(0.8))),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -96,11 +97,11 @@ class _AccountScreenState extends State<AccountScreen> {
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppColors.surface,
+      backgroundColor: context.surfaceColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) => Container(
+      builder: (ctx) => Container(
         padding: const EdgeInsets.all(20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -108,10 +109,10 @@ class _AccountScreenState extends State<AccountScreen> {
           children: [
             Text(
               l10n.selectLanguage,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: AppColors.textPrimary,
+                color: Theme.of(ctx).colorScheme.onSurface,
               ),
             ),
             const SizedBox(height: 16),
@@ -170,10 +171,10 @@ class _AccountScreenState extends State<AccountScreen> {
     final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: context.scaffoldBg,
       appBar: AppBar(
-        backgroundColor: AppColors.surface,
-        foregroundColor: AppColors.textPrimary,
+        backgroundColor: context.surfaceColor,
+        foregroundColor: context.textPrimaryColor,
         elevation: 0,
         title: Text(l10n.account),
         automaticallyImplyLeading: false,
@@ -376,9 +377,9 @@ class _AccountScreenState extends State<AccountScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: context.surfaceColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: context.borderColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -388,10 +389,10 @@ class _AccountScreenState extends State<AccountScreen> {
             children: [
               Text(
                 l10n.wallet,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
+                  color: context.textPrimaryColor,
                 ),
               ),
               Container(
@@ -419,7 +420,7 @@ class _AccountScreenState extends State<AccountScreen> {
           ),
           const SizedBox(height: 16),
           Text(
-            '\$${_profile!.accountInfo.currentBalance.toStringAsFixed(2)}',
+            AppCurrency.format(_profile!.accountInfo.currentBalance),
             style: const TextStyle(
               fontSize: 32,
               fontWeight: FontWeight.bold,
@@ -427,22 +428,22 @@ class _AccountScreenState extends State<AccountScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          const Divider(color: AppColors.border),
+          Divider(color: context.borderColor),
           const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
                 child: _buildWalletStat(
                   l10n.debtLimit,
-                  '\$${_profile!.accountInfo.debtLimit.toStringAsFixed(2)}',
+                  AppCurrency.format(_profile!.accountInfo.debtLimit),
                   AppColors.warning,
                 ),
               ),
-              Container(width: 1, height: 40, color: AppColors.border),
+              Container(width: 1, height: 40, color: context.borderColor),
               Expanded(
                 child: _buildWalletStat(
                   l10n.availableCapacity,
-                  '\$${_profile!.accountInfo.availableCapacity.toStringAsFixed(2)}',
+                  AppCurrency.format(_profile!.accountInfo.availableCapacity),
                   AppColors.success,
                 ),
               ),
@@ -460,9 +461,9 @@ class _AccountScreenState extends State<AccountScreen> {
         children: [
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
-              color: AppColors.textSecondary,
+              color: context.textSecondaryColor,
             ),
             textAlign: TextAlign.center,
           ),
@@ -483,9 +484,9 @@ class _AccountScreenState extends State<AccountScreen> {
   Widget _buildSection({required String title, required List<Widget> children}) {
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: context.surfaceColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: context.borderColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -494,10 +495,10 @@ class _AccountScreenState extends State<AccountScreen> {
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: Text(
               title,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: AppColors.textSecondary,
+                color: context.textSecondaryColor,
               ),
             ),
           ),
@@ -571,15 +572,15 @@ class _AccountScreenState extends State<AccountScreen> {
             Expanded(
               child: Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 15,
-                  color: AppColors.textPrimary,
+                  color: context.textPrimaryColor,
                 ),
               ),
             ),
-            const Icon(
+            Icon(
               Icons.chevron_right,
-              color: AppColors.textSecondary,
+              color: context.textSecondaryColor,
             ),
           ],
         ),
@@ -590,10 +591,10 @@ class _AccountScreenState extends State<AccountScreen> {
   void _showHelpDialog(AppLocalizations l10n) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        title: Text(l10n.helpAndSupport, style: const TextStyle(color: AppColors.textPrimary)),
-        content: Text(l10n.helpMessage, style: const TextStyle(color: AppColors.textSecondary)),
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Theme.of(ctx).colorScheme.surface,
+        title: Text(l10n.helpAndSupport, style: TextStyle(color: Theme.of(ctx).colorScheme.onSurface)),
+        content: Text(l10n.helpMessage, style: TextStyle(color: Theme.of(ctx).colorScheme.onSurface.withOpacity(0.8))),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),

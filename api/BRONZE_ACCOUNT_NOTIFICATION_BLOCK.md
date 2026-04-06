@@ -99,7 +99,7 @@ AND created_at > NOW() - INTERVAL 1 MINUTE;
 ### Test 2: Check API Response
 ```bash
 # Try to send notification to bronze account
-curl -X POST https://ruyadream.com/velox/api/notification_center.php \
+curl -X POST https://veloxshoppingiq.com/api/notification_center.php \
   -H "Content-Type: application/json" \
   -d '{
     "action": "custom_notification",
@@ -114,7 +114,7 @@ curl -X POST https://ruyadream.com/velox/api/notification_center.php \
 ### Test 3: Check Notification Campaigns
 ```bash
 # Send announcement to all (should skip bronze accounts)
-curl -X POST https://ruyadream.com/velox/api/notification_center.php \
+curl -X POST https://veloxshoppingiq.com/api/notification_center.php \
   -H "Content-Type: application/json" \
   -d '{
     "action": "send_announcement",

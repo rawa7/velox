@@ -63,7 +63,7 @@
             <div class="card-body">
                 <div class="alert alert-info">
                     <strong>📱 API Endpoint:</strong><br>
-                    <code>https://ruyadream.com/velox/api/shein_extract.php</code>
+                    <code>https://veloxshoppingiq.com/api/shein_extract.php</code>
                 </div>
 
                 <div class="mb-3">
@@ -106,7 +106,7 @@
             </div>
             <div class="card-body">
                 <h6>Endpoint:</h6>
-                <pre>POST/GET https://ruyadream.com/velox/api/shein_extract.php</pre>
+                <pre>POST/GET https://veloxshoppingiq.com/api/shein_extract.php</pre>
 
                 <h6 class="mt-3">Parameters:</h6>
                 <pre>{
@@ -144,7 +144,7 @@
 import 'package:http/http.dart' as http;
 
 Future&lt;Map&lt;String, dynamic&gt;&gt; extractSheinCart(String sheinLink) async {
-  final url = Uri.parse('https://ruyadream.com/velox/api/shein_extract.php');
+  final url = Uri.parse('https://veloxshoppingiq.com/api/shein_extract.php');
   
   final response = await http.post(
     url,

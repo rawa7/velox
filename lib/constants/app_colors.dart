@@ -69,6 +69,22 @@ class AppColors {
   static const List<Color> cardGradient  = [Color(0xFF2C2C2E), Color(0xFF3A3A3C)];
 }
 
+/// Theme-aware colors — use these in build() so the whole app responds to dark/light toggle.
+extension ThemeColors on BuildContext {
+  Color get scaffoldBg => Theme.of(this).scaffoldBackgroundColor;
+  Color get surfaceColor => Theme.of(this).colorScheme.surface;
+  Color get textPrimaryColor => Theme.of(this).colorScheme.onSurface;
+  Color get textSecondaryColor => Theme.of(this).brightness == Brightness.dark
+      ? AppColors.textSecondary
+      : LightColors.textSecondary;
+  Color get borderColor => Theme.of(this).brightness == Brightness.dark
+      ? AppColors.border
+      : LightColors.border;
+  Color get cardColor => Theme.of(this).colorScheme.surface;
+  Brightness get brightness => Theme.of(this).brightness;
+  bool get isDark => Theme.of(this).brightness == Brightness.dark;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Light-theme colour constants
 // ─────────────────────────────────────────────────────────────────────────────

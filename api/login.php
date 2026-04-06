@@ -50,8 +50,8 @@ if (empty($phone) || empty($password)) {
     exit();
 }
 
-// Query the database
-$query = "SELECT * FROM buyer WHERE phone='$phone' AND password='$password'";
+// Query the database, joining usertype to get the name
+$query = "SELECT b.*, ut.name as usertype_name FROM buyer b LEFT JOIN usertype ut ON b.usertype = ut.id WHERE b.phone='$phone' AND b.password='$password'";
 $result = mysqli_query($conn, $query);
 
 if (!$result) {

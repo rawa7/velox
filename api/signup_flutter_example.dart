@@ -106,7 +106,7 @@ class SignupResponse {
 // ============================================================================
 
 class SignupService {
-  static const String baseUrl = 'https://ruyadream.com/velox/api';
+  static const String baseUrl = 'https://veloxshoppingiq.com/api';
 
   static Future<SignupResponse> signup(SignupRequest request) async {
     try {

@@ -15,18 +15,18 @@ EXAMPLES:
 ---------
 
 1. Using cURL:
-   curl "http://ruyadream.com/velox/api/notifications.php?customer_id=853&mark_all_read=1"
+   curl "https://veloxshoppingiq.com/api/notifications.php?customer_id=853&mark_all_read=1"
 
 2. Using Browser:
-   http://ruyadream.com/velox/api/notifications.php?customer_id=853&mark_all_read=1
+   https://veloxshoppingiq.com/api/notifications.php?customer_id=853&mark_all_read=1
 
 3. Using Flutter/Dart:
    final response = await http.get(
-     Uri.parse('http://ruyadream.com/velox/api/notifications.php?customer_id=$userId&mark_all_read=1')
+     Uri.parse('https://veloxshoppingiq.com/api/notifications.php?customer_id=$userId&mark_all_read=1')
    );
 
 4. Using JavaScript:
-   fetch('http://ruyadream.com/velox/api/notifications.php?customer_id=853&mark_all_read=1')
+   fetch('https://veloxshoppingiq.com/api/notifications.php?customer_id=853&mark_all_read=1')
      .then(res => res.json())
      .then(data => console.log(data));
 
@@ -62,7 +62,7 @@ FLUTTER EXAMPLE:
 ----------------
 
 Future<void> markAllNotificationsAsRead(int customerId) async {
-  final url = 'http://ruyadream.com/velox/api/notifications.php?customer_id=$customerId&mark_all_read=1';
+  final url = 'https://veloxshoppingiq.com/api/notifications.php?customer_id=$customerId&mark_all_read=1';
   
   final response = await http.get(Uri.parse(url));
   

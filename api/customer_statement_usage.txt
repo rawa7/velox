@@ -34,13 +34,13 @@ EXAMPLES:
 ---------
 
 1. GET FULL STATEMENT (NO DATE FILTER):
-   curl "https://ruyadream.com/velox/api/customer_statement.php?customer_id=853"
+   curl "https://veloxshoppingiq.com/api/customer_statement.php?customer_id=853"
 
 2. GET STATEMENT WITH DATE RANGE:
-   curl "https://ruyadream.com/velox/api/customer_statement.php?customer_id=853&date_from=2025-01-01&date_to=2025-10-18"
+   curl "https://veloxshoppingiq.com/api/customer_statement.php?customer_id=853&date_from=2025-01-01&date_to=2025-10-18"
 
 3. GET STATEMENT FROM SPECIFIC DATE:
-   curl "https://ruyadream.com/velox/api/customer_statement.php?customer_id=853&date_from=2025-09-01"
+   curl "https://veloxshoppingiq.com/api/customer_statement.php?customer_id=853&date_from=2025-09-01"
 
 RESPONSE STRUCTURE:
 -------------------
@@ -98,7 +98,7 @@ RESPONSE STRUCTURE:
         "size": "M",
         "paymentstatus": 0,
         "website_name": "Amazon",
-        "image_url": "https://ruyadream.com/velox/uploads/image.jpg",
+        "image_url": "https://veloxshoppingiq.com/uploads/image.jpg",
         "created_at": "2025-10-15 14:30:00",
         ...
       }

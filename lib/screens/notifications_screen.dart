@@ -150,14 +150,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: context.scaffoldBg,
       appBar: AppBar(
-        backgroundColor: AppColors.surface,
-        foregroundColor: AppColors.textPrimary,
+        backgroundColor: context.surfaceColor,
+        foregroundColor: context.textPrimaryColor,
         elevation: 0,
         title: Row(
           children: [
-            const Text('Notifications'),
+            Text('Notifications', style: TextStyle(color: context.textPrimaryColor)),
             if (_unreadCount > 0) ...[
               const SizedBox(width: 8),
               Container(
@@ -182,7 +182,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           if (_unreadCount > 0)
             TextButton(
               onPressed: _markAllAsRead,
-              child: const Text(
+              child: Text(
                 'Mark all read',
                 style: TextStyle(color: AppColors.primary),
               ),
@@ -215,23 +215,23 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           Icon(
             Icons.notifications_off_outlined,
             size: 80,
-            color: AppColors.textSecondary.withOpacity(0.5),
+            color: context.textSecondaryColor.withOpacity(0.5),
           ),
           const SizedBox(height: 20),
-          const Text(
+          Text(
             'No notifications yet',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary,
+              color: context.textPrimaryColor,
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'Notifications will appear here',
             style: TextStyle(
               fontSize: 14,
-              color: AppColors.textSecondary,
+              color: context.textSecondaryColor,
             ),
           ),
         ],
@@ -249,10 +249,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: notification.isRead ? AppColors.surface : AppColors.primary.withOpacity(0.05),
+          color: notification.isRead ? context.surfaceColor : AppColors.primary.withOpacity(0.05),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: notification.isRead ? AppColors.border : AppColors.primary.withOpacity(0.2),
+            color: notification.isRead ? context.borderColor : AppColors.primary.withOpacity(0.2),
           ),
         ),
         child: Row(
@@ -280,7 +280,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: notification.isRead ? FontWeight.normal : FontWeight.w600,
-                            color: AppColors.textPrimary,
+                            color: context.textPrimaryColor,
                           ),
                         ),
                       ),
@@ -298,9 +298,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   const SizedBox(height: 4),
                   Text(
                     notification.message,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
-                      color: AppColors.textSecondary,
+                      color: context.textSecondaryColor,
                       height: 1.4,
                     ),
                     maxLines: 2,
@@ -309,9 +309,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   const SizedBox(height: 8),
                   Text(
                     _formatTimestamp(notification.createdAt),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11,
-                      color: AppColors.textTertiary,
+                      color: context.textSecondaryColor,
                     ),
                   ),
                 ],

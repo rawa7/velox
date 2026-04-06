@@ -121,7 +121,7 @@ $orders = [];
 while ($order = mysqli_fetch_assoc($orders_result)) {
     // Add full image URL
     if (!empty($order['image_path'])) {
-        $order['image_url'] = 'https://ruyadream.com/velox' . $order['image_path'];
+        $order['image_url'] = 'https://veloxshoppingiq.com' . $order['image_path'];
     } else {
         $order['image_url'] = null;
     }
@@ -133,9 +133,11 @@ while ($order = mysqli_fetch_assoc($orders_result)) {
     if (isset($order['totalprice'])) {
         $order['totalprice'] = round(floatval($order['totalprice']), 2);
     }
-    // Add total_dinar (Iraqi Dinar) - rounded to whole number
-    if (isset($order['total_dinar'])) {
+    // Add total_dinar (Iraqi Dinar) - use totalprice when total_dinar is missing or zero
+    if (isset($order['total_dinar']) && (string)$order['total_dinar'] !== '' && floatval($order['total_dinar']) > 0) {
         $order['total_dinar'] = round(floatval($order['total_dinar']), 0);
+    } else {
+        $order['total_dinar'] = isset($order['totalprice']) ? round(floatval($order['totalprice']), 0) : 0;
     }
     if (isset($order['cargo'])) {
         $order['cargo'] = round(floatval($order['cargo']), 2);

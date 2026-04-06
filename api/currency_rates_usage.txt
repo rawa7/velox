@@ -16,11 +16,11 @@ EXAMPLES:
 ---------
 
 1. GET ALL CURRENCY RATES:
-   curl "https://ruyadream.com/velox/api/currency_rates.php"
+   curl "https://veloxshoppingiq.com/api/currency_rates.php"
 
 2. SEARCH FOR SPECIFIC CURRENCY:
-   curl "https://ruyadream.com/velox/api/currency_rates.php?search=USD"
-   curl "https://ruyadream.com/velox/api/currency_rates.php?search=Dolar"
+   curl "https://veloxshoppingiq.com/api/currency_rates.php?search=USD"
+   curl "https://veloxshoppingiq.com/api/currency_rates.php?search=Dolar"
 
 RESPONSE STRUCTURE:
 -------------------

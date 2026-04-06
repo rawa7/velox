@@ -86,7 +86,7 @@ switch ($method) {
                 if (strlen($clean_path) > 0 && $clean_path[0] !== '/') {
                     $clean_path = '/' . $clean_path;
                 }
-                return 'https://ruyadream.com/velox' . $clean_path;
+                return 'https://veloxshoppingiq.com' . $clean_path;
             };
             
             $banners[] = [

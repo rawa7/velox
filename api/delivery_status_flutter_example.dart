@@ -71,7 +71,7 @@ class DeliveryStatusResponse {
 // ============================================================================
 
 class DeliveryStatusService {
-  static const String baseUrl = 'https://ruyadream.com/velox/api';
+  static const String baseUrl = 'https://veloxshoppingiq.com/api';
 
   /// Get delivery status for a customer
   static Future<DeliveryStatusResponse> getDeliveryStatus(

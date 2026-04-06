@@ -72,8 +72,8 @@ CREATE TABLE shop_banners (
       "product_category": "WOMEN",
       "brand_name": "MANGO",
       "position": 0,
-      "banner_image": "https://ruyadream.com/velox/uploads/banner_abc123.jpg",
-      "product_image": "https://ruyadream.com/velox/uploads/6396.PNG",
+      "banner_image": "https://veloxshoppingiq.com/uploads/banner_abc123.jpg",
+      "product_image": "https://veloxshoppingiq.com/uploads/6396.PNG",
       "created_at": "2025-12-24 12:00:00"
     }
   ]
@@ -147,7 +147,7 @@ CREATE TABLE shop_banners (
 
 Access the web-based management interface at:
 ```
-https://ruyadream.com/velox/api/test_shop_banners.html
+https://veloxshoppingiq.com/api/test_shop_banners.html
 ```
 
 Features:
@@ -167,7 +167,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 
 class BannerService {
-  static const String API_URL = 'https://ruyadream.com/velox/api/shop_banners.php';
+  static const String API_URL = 'https://veloxshoppingiq.com/api/shop_banners.php';
   
   Future<List<dynamic>> fetchBanners() async {
     try {
@@ -376,12 +376,12 @@ class HomePage extends StatelessWidget {
 
 **Get all banners:**
 ```bash
-curl https://ruyadream.com/velox/api/shop_banners.php
+curl https://veloxshoppingiq.com/api/shop_banners.php
 ```
 
 **Create a banner:**
 ```bash
-curl -X POST https://ruyadream.com/velox/api/shop_banners.php \
+curl -X POST https://veloxshoppingiq.com/api/shop_banners.php \
   -F "title=Summer Sale" \
   -F "description=50% off" \
   -F "product_id=53" \
@@ -391,7 +391,7 @@ curl -X POST https://ruyadream.com/velox/api/shop_banners.php \
 
 **Delete a banner:**
 ```bash
-curl -X DELETE https://ruyadream.com/velox/api/shop_banners.php \
+curl -X DELETE https://veloxshoppingiq.com/api/shop_banners.php \
   -H "Content-Type: application/json" \
   -d '{"banner_id": 1}'
 ```

@@ -87,9 +87,9 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     final l10n = AppLocalizations.of(context)!;
     
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: context.scaffoldBg,
       appBar: AppBar(
-        backgroundColor: AppColors.surface,
+        backgroundColor: context.surfaceColor,
         elevation: 0,
         title: Text(
           l10n.changePassword,

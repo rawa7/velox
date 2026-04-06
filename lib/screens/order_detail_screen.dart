@@ -2,15 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../constants/app_colors.dart';
+import '../constants/currency.dart';
 import '../services/api_service.dart';
 import '../services/storage_service.dart';
 import '../models/order_model.dart';
+import '../models/user_model.dart';
 import '../generated/app_localizations.dart';
 
 class OrderDetailScreen extends StatefulWidget {
   final Order order;
 
-  const OrderDetailScreen({super.key, required this.order});
+  /// Pass the current user so silver-account restrictions can be applied
+  /// without an extra async fetch.
+  final User? currentUser;
+
+  const OrderDetailScreen({super.key, required this.order, this.currentUser});
 
   @override
   State<OrderDetailScreen> createState() => _OrderDetailScreenState();
@@ -19,6 +25,8 @@ class OrderDetailScreen extends StatefulWidget {
 class _OrderDetailScreenState extends State<OrderDetailScreen> {
   late Order _order;
   bool _isLoading = false;
+
+  bool get _isSilver => widget.currentUser?.isSilverAccount ?? false;
 
   @override
   void initState() {
@@ -72,10 +80,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        title: Text(l10n.confirmAccept, style: const TextStyle(color: AppColors.textPrimary)),
-        content: Text(l10n.areYouSureAccept, style: const TextStyle(color: AppColors.textSecondary)),
+      builder: (ctx) => AlertDialog(
+        backgroundColor: ctx.surfaceColor,
+        title: Text(l10n.confirmAccept, style: TextStyle(color: ctx.textPrimaryColor)),
+        content: Text(l10n.areYouSureAccept, style: TextStyle(color: ctx.textSecondaryColor)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -168,12 +176,12 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     final statusIcon = _getStatusIcon(_order.status);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: context.scaffoldBg,
       appBar: AppBar(
-        backgroundColor: AppColors.surface,
-        foregroundColor: AppColors.textPrimary,
+        backgroundColor: context.surfaceColor,
+        foregroundColor: context.textPrimaryColor,
         elevation: 0,
-        title: Text('${l10n.order} #${_order.serial}'),
+        title: Text('${l10n.order} #${_order.serial}', style: TextStyle(color: context.textPrimaryColor)),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
@@ -182,29 +190,29 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Status Card
+                  // Status Card (blue for visibility; icon/name keep semantic color)
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
-                          statusColor.withOpacity(0.2),
-                          statusColor.withOpacity(0.1),
+                          AppColors.primary.withOpacity(0.25),
+                          AppColors.primary.withOpacity(0.12),
                         ],
                       ),
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: statusColor.withOpacity(0.3)),
+                      border: Border.all(color: AppColors.primary.withOpacity(0.4)),
                     ),
                     child: Row(
                       children: [
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: statusColor.withOpacity(0.2),
+                            color: AppColors.primary.withOpacity(0.25),
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: Icon(statusIcon, color: statusColor, size: 32),
+                          child: Icon(statusIcon, color: AppColors.primary, size: 32),
                         ),
                         const SizedBox(width: 16),
                         Column(
@@ -212,11 +220,11 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                           children: [
                             Text(
                               l10n.status,
-                              style: TextStyle(fontSize: 12, color: statusColor.withOpacity(0.8)),
+                              style: TextStyle(fontSize: 12, color: AppColors.primary.withOpacity(0.9)),
                             ),
                             Text(
                               _order.statusName,
-                              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: statusColor),
+                              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.primary),
                             ),
                           ],
                         ),
@@ -232,17 +240,17 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                       height: 200,
                       margin: const EdgeInsets.only(bottom: 16),
                       decoration: BoxDecoration(
-                        color: AppColors.surface,
+                        color: context.surfaceColor,
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: AppColors.border),
+                        border: Border.all(color: context.borderColor),
                       ),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(16),
                         child: Image.network(
                           _order.imageUrl,
                           fit: BoxFit.contain,
-                          errorBuilder: (_, __, ___) => const Center(
-                            child: Icon(Icons.image_not_supported, size: 60, color: AppColors.textSecondary),
+                          errorBuilder: (_, __, ___) => Center(
+                            child: Icon(Icons.image_not_supported, size: 60, color: context.textSecondaryColor),
                           ),
                         ),
                       ),
@@ -250,18 +258,19 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 
                   // Order Details Card
                   _buildCard(
+                    context: context,
                     title: l10n.orderDetails,
                     child: Column(
                       children: [
-                        _buildInfoRow(l10n.serialNumber, _order.serial),
-                        if (_order.websiteName != null)
-                          _buildInfoRow(l10n.website, _order.websiteName!),
+                        _buildInfoRow(context, l10n.serialNumber, _order.serial),
+                        if (_order.websiteName != null && !_isSilver)
+                          _buildInfoRow(context, l10n.website, _order.websiteName!),
                         if (_order.size.isNotEmpty)
-                          _buildInfoRow(l10n.size, _order.size),
+                          _buildInfoRow(context, l10n.size, _order.size),
                         if (_order.color.isNotEmpty)
-                          _buildInfoRow(l10n.color, _order.color),
-                        _buildInfoRow(l10n.qty, _order.qty),
-                        if (_order.link.isNotEmpty) ...[
+                          _buildInfoRow(context, l10n.color, _order.color),
+                        _buildInfoRow(context, l10n.qty, _order.qty),
+                        if (_order.link.isNotEmpty && !_isSilver) ...[
                           const SizedBox(height: 8),
                           GestureDetector(
                             onTap: _openProductUrl,
@@ -288,33 +297,34 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 
                   // Price Details Card
                   _buildCard(
+                    context: context,
                     title: l10n.totalPrice,
                     child: Column(
                       children: [
-                        _buildPriceRow(l10n.itemPrice, '\$${_order.itemPrice}'),
-                        _buildPriceRow(l10n.qty, 'x${_order.qty}'),
+                        _buildPriceRow(context, l10n.itemPrice, AppCurrency.format(double.tryParse(_order.itemPrice) ?? 0)),
+                        _buildPriceRow(context, l10n.qty, 'x${_order.qty}'),
                         if (double.tryParse(_order.shippingPrice) != null && double.parse(_order.shippingPrice) > 0)
-                          _buildPriceRow(l10n.shipping, '\$${_order.shippingPrice}'),
+                          _buildPriceRow(context, l10n.shipping, AppCurrency.format(double.parse(_order.shippingPrice))),
                         if (double.tryParse(_order.cargo) != null && double.parse(_order.cargo) > 0)
-                          _buildPriceRow(l10n.cargo, '\$${_order.cargo}'),
+                          _buildPriceRow(context, l10n.cargo, AppCurrency.format(double.parse(_order.cargo))),
                         if (double.tryParse(_order.commission) != null && double.parse(_order.commission) > 0)
-                          _buildPriceRow(l10n.commission, '\$${_order.commission}'),
+                          _buildPriceRow(context, l10n.commission, AppCurrency.format(double.parse(_order.commission))),
                         if (double.tryParse(_order.tax) != null && double.parse(_order.tax) > 0)
-                          _buildPriceRow(l10n.tax, '\$${_order.tax}'),
-                        const Divider(color: AppColors.border, height: 24),
+                          _buildPriceRow(context, l10n.tax, AppCurrency.format(double.parse(_order.tax))),
+                        Divider(color: context.borderColor, height: 24),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
                               l10n.totalPrice,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
-                                color: AppColors.textPrimary,
+                                color: context.textPrimaryColor,
                               ),
                             ),
                             Text(
-                              '\$${_order.totalPrice}',
+                              AppCurrency.format(_order.displayTotal),
                               style: const TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold,
@@ -331,12 +341,13 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   // Notes
                   if (_order.note.isNotEmpty)
                     _buildCard(
+                      context: context,
                       title: l10n.note,
                       child: Text(
                         _order.note,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 14,
-                          color: AppColors.textSecondary,
+                          color: context.textSecondaryColor,
                           height: 1.5,
                         ),
                       ),
@@ -345,12 +356,13 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   // Order Info
                   const SizedBox(height: 16),
                   _buildCard(
+                    context: context,
                     title: l10n.createdAt,
                     child: Column(
                       children: [
-                        _buildInfoRow(l10n.orderId, '#${_order.id}'),
-                        _buildInfoRow(l10n.createdAt, _order.date),
-                        _buildInfoRow(l10n.paymentStatus, _order.paymentStatus == '1' ? l10n.paid : l10n.waiting),
+                        _buildInfoRow(context, l10n.orderId, '#${_order.id}'),
+                        _buildInfoRow(context, l10n.createdAt, _order.date),
+                        _buildInfoRow(context, l10n.paymentStatus, _order.paymentStatus == '1' ? l10n.paid : l10n.waiting),
                       ],
                     ),
                   ),
@@ -379,12 +391,12 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                             onPressed: _acceptOrder,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.success,
-                              foregroundColor: Colors.white,
+                              foregroundColor: context.textPrimaryColor,
                               padding: const EdgeInsets.symmetric(vertical: 14),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             ),
-                            icon: const Icon(Icons.check),
-                            label: Text(l10n.accept),
+                            icon: Icon(Icons.check, color: context.textPrimaryColor),
+                            label: Text(l10n.accept, style: TextStyle(color: context.textPrimaryColor)),
                           ),
                         ),
                       ],
@@ -397,24 +409,24 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     );
   }
 
-  Widget _buildCard({required String title, required Widget child}) {
+  Widget _buildCard({required BuildContext context, required String title, required Widget child}) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: context.surfaceColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: context.borderColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             title,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
-              color: AppColors.textSecondary,
+              color: context.textPrimaryColor,
             ),
           ),
           const SizedBox(height: 12),
@@ -424,7 +436,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     );
   }
 
-  Widget _buildInfoRow(String label, String value) {
+  Widget _buildInfoRow(BuildContext context, String label, String value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: Row(
@@ -432,25 +444,25 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         children: [
           Text(
             label,
-            style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+            style: TextStyle(fontSize: 13, color: context.textSecondaryColor),
           ),
           Text(
             value,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.textPrimary),
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: context.textPrimaryColor),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildPriceRow(String label, String value) {
+  Widget _buildPriceRow(BuildContext context, String label, String value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(fontSize: 14, color: AppColors.textSecondary)),
-          Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppColors.textPrimary)),
+          Text(label, style: TextStyle(fontSize: 14, color: context.textSecondaryColor)),
+          Text(value, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: context.textPrimaryColor)),
         ],
       ),
     );

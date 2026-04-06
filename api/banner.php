@@ -8,7 +8,7 @@ $result = $conn->query($sql);
 
 $banners = [];
 while ($row = $result->fetch_assoc()) {
-    $row['image'] = 'https://ruyadream.com/velox'.filesimage($row['image']);
+    $row['image'] = 'https://veloxshoppingiq.com'.filesimage($row['image']);
     $banners[] = $row;
 }
 

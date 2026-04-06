@@ -562,12 +562,12 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
     final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: context.scaffoldBg,
       appBar: AppBar(
-        backgroundColor: AppColors.surface,
-        foregroundColor: AppColors.textPrimary,
+        backgroundColor: context.surfaceColor,
+        foregroundColor: context.textPrimaryColor,
         elevation: 0,
-        title: Text(l10n.newOrder),
+        title: Text(l10n.newOrder, style: TextStyle(color: context.textPrimaryColor)),
         actions: [
           if (_showCartItems && _cartItems.length > 1)
             Padding(
@@ -627,13 +627,13 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
                               onPressed: _onExtractFromLink,
                             ),
                     ),
-                    const Padding(
-                      padding: EdgeInsets.only(left: 4, top: 6),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4, top: 6),
                       child: Text(
                         'Paste any product link, then tap Extract. SHEIN links: choose single product or full cart.',
                         style: TextStyle(
                           fontSize: 11,
-                          color: AppColors.textSecondary,
+                          color: context.textSecondaryColor,
                           fontStyle: FontStyle.italic,
                         ),
                       ),
@@ -646,7 +646,7 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
                         onPressed: _isFetchingProduct ? null : _onExtractFromLink,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.secondary,
-                          foregroundColor: Colors.white,
+                          foregroundColor: context.textPrimaryColor,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
@@ -654,20 +654,21 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
                           elevation: 2,
                         ),
                         icon: _isFetchingProduct
-                            ? const SizedBox(
+                            ? SizedBox(
                                 width: 20,
                                 height: 20,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  color: Colors.white,
+                                  color: context.textPrimaryColor,
                                 ),
                               )
-                            : const Icon(Icons.link, size: 20),
+                            : Icon(Icons.link, size: 20, color: context.textPrimaryColor),
                         label: Text(
                           _isFetchingProduct ? 'Extracting...' : 'Extract from link',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontWeight: FontWeight.w600,
                             fontSize: 14,
+                            color: context.textPrimaryColor,
                           ),
                         ),
                       ),
@@ -714,24 +715,25 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
                         onPressed: _isLoading ? null : _submitOrder,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primary,
-                          foregroundColor: Colors.white,
+                          foregroundColor: context.textPrimaryColor,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
                           ),
                           elevation: 4,
                         ),
                         child: _isLoading
-                            ? const CircularProgressIndicator(color: Colors.white)
+                            ? CircularProgressIndicator(color: context.textPrimaryColor)
                             : Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  const Icon(Icons.check),
+                                  Icon(Icons.check, color: context.textPrimaryColor),
                                   const SizedBox(width: 8),
                                   Text(
                                     l10n.submit,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.bold,
+                                      color: context.textPrimaryColor,
                                     ),
                                   ),
                                 ],
@@ -767,20 +769,20 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
                   children: [
                     const Icon(Icons.shopping_bag_outlined, color: AppColors.primary),
                     const SizedBox(width: 8),
-                    const Text(
+                    Text(
                       'Cart Items',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
+                        color: context.textPrimaryColor,
                       ),
                     ),
                     const SizedBox(width: 8),
                     Text(
                       '(${_cartItems.length})',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 13,
-                        color: AppColors.textSecondary,
+                        color: context.textSecondaryColor,
                       ),
                     ),
                   ],
@@ -803,7 +805,7 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
               ],
             ),
           ),
-          const Divider(color: AppColors.border, height: 1),
+          Divider(color: context.borderColor, height: 1),
           
           // Info text
           Padding(
@@ -812,7 +814,7 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
               'Add each product from the cart. Item Price will be calculated automatically.',
               style: TextStyle(
                 fontSize: 12,
-                color: AppColors.textSecondary,
+                color: context.textSecondaryColor,
               ),
             ),
           ),
@@ -822,7 +824,7 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             itemCount: _cartItems.length,
-            separatorBuilder: (_, __) => const Divider(color: AppColors.border, height: 1),
+            separatorBuilder: (_, __) => Divider(color: context.borderColor, height: 1),
             itemBuilder: (context, index) => _buildCartItemCard(index, l10n),
           ),
           
@@ -835,19 +837,19 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: context.surfaceColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: context.borderColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Product details',
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary,
+              color: context.textPrimaryColor,
             ),
           ),
           const SizedBox(height: 12),
@@ -869,7 +871,7 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Qty', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                    Text('Qty', style: TextStyle(fontSize: 11, color: context.textSecondaryColor)),
                     const SizedBox(height: 4),
                     Row(
                       children: [
@@ -880,13 +882,13 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(vertical: 8),
                             decoration: BoxDecoration(
-                              color: AppColors.background,
-                              border: Border.symmetric(horizontal: BorderSide(color: AppColors.border)),
+                              color: context.cardColor,
+                              border: Border.symmetric(horizontal: BorderSide(color: context.borderColor)),
                             ),
                             child: Text(
                               '$_singleQty',
                               textAlign: TextAlign.center,
-                              style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                              style: TextStyle(fontWeight: FontWeight.w600, color: context.textPrimaryColor),
                             ),
                           ),
                         ),
@@ -933,9 +935,9 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
                   width: 70,
                   height: 70,
                   decoration: BoxDecoration(
-                    color: AppColors.background,
+                    color: context.cardColor,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: AppColors.border),
+                    border: Border.all(color: context.borderColor),
                   ),
                   child: item.hasImage
                       ? ClipRRect(
@@ -945,20 +947,20 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
                               : Image.network(
                                   item.imageUrl!,
                                   fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => const Icon(
+                                  errorBuilder: (_, __, ___) => Icon(
                                     Icons.image_outlined,
-                                    color: AppColors.textSecondary,
+                                    color: context.textSecondaryColor,
                                   ),
                                 ),
                         )
-                      : const Column(
+                      : Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(Icons.add_photo_alternate_outlined, 
-                                color: AppColors.textSecondary, size: 24),
-                            SizedBox(height: 2),
+                                color: context.textSecondaryColor, size: 24),
+                            const SizedBox(height: 2),
                             Text('Photo', 
-                                style: TextStyle(fontSize: 9, color: AppColors.textSecondary)),
+                                style: TextStyle(fontSize: 9, color: context.textSecondaryColor)),
                           ],
                         ),
                 ),
@@ -997,54 +999,54 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
           ),
           const SizedBox(height: 12),
           
-          // Quantity + Size row (price is stored but hidden from user)
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              // Quantity
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              // Quantity + Size row (price is stored but hidden from user)
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  const Text('Qty', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
-                  const SizedBox(height: 4),
-                  Row(
+                  // Quantity
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildQtyButton(Icons.remove, () {
-                        if (item.quantity > 1) {
-                          setState(() {
-                            _cartItems[index] = item.copyWith(quantity: item.quantity - 1);
-                          });
-                        }
-                      }),
-                      Container(
-                        width: 44,
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        decoration: BoxDecoration(
-                          color: AppColors.background,
-                          border: Border.symmetric(horizontal: BorderSide(color: AppColors.border)),
-                        ),
-                        child: Text(
-                          '${item.quantity}',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary),
-                        ),
+                      Text('Qty', style: TextStyle(fontSize: 11, color: context.textSecondaryColor)),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          _buildQtyButton(Icons.remove, () {
+                            if (item.quantity > 1) {
+                              setState(() {
+                                _cartItems[index] = item.copyWith(quantity: item.quantity - 1);
+                              });
+                            }
+                          }),
+                          Container(
+                            width: 44,
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            decoration: BoxDecoration(
+                              color: context.cardColor,
+                              border: Border.symmetric(horizontal: BorderSide(color: context.borderColor)),
+                            ),
+                            child: Text(
+                              '${item.quantity}',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(fontWeight: FontWeight.w600, color: context.textPrimaryColor),
+                            ),
+                          ),
+                          _buildQtyButton(Icons.add, () {
+                            setState(() {
+                              _cartItems[index] = item.copyWith(quantity: item.quantity + 1);
+                            });
+                          }),
+                        ],
                       ),
-                      _buildQtyButton(Icons.add, () {
-                        setState(() {
-                          _cartItems[index] = item.copyWith(quantity: item.quantity + 1);
-                        });
-                      }),
                     ],
                   ),
-                ],
-              ),
-              const SizedBox(width: 12),
-              // Size
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Size', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                  const SizedBox(width: 12),
+                  // Size
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Size', style: TextStyle(fontSize: 11, color: context.textSecondaryColor)),
                     const SizedBox(height: 4),
                     _buildSmallTextField(
                       hint: 'e.g. M, L, One Size',
@@ -1071,8 +1073,8 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
       child: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: AppColors.background,
-          border: Border.all(color: AppColors.border),
+          color: context.cardColor,
+          border: Border.all(color: context.borderColor),
           borderRadius: icon == Icons.remove
               ? const BorderRadius.only(
                   topLeft: Radius.circular(8),
@@ -1083,7 +1085,7 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
                   bottomRight: Radius.circular(8),
                 ),
         ),
-        child: Icon(icon, size: 16, color: AppColors.textSecondary),
+        child: Icon(icon, size: 16, color: context.textSecondaryColor),
       ),
     );
   }
@@ -1107,9 +1109,9 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
     return Container(
       height: 120,
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: context.surfaceColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: context.borderColor),
       ),
       child: hasImage
           ? Stack(
@@ -1126,7 +1128,7 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
                             'Referer': 'https://www.shein.com/',
                             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
                           },
-                          errorBuilder: (_, __, ___) => const Icon(Icons.broken_image_outlined, color: AppColors.textSecondary, size: 48),
+                          errorBuilder: (_, __, ___) => Icon(Icons.broken_image_outlined, color: context.textSecondaryColor, size: 48),
                         ),
                 ),
                 Positioned(
@@ -1158,14 +1160,14 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
                   children: [
                     Icon(
                       Icons.add_photo_alternate_outlined,
-                      color: AppColors.textSecondary,
+                      color: context.textSecondaryColor,
                       size: 32,
                     ),
                     const SizedBox(height: 8),
                     Text(
                       l10n.chooseFromGallery,
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
+                      style: TextStyle(
+                        color: context.textSecondaryColor,
                         fontSize: 13,
                       ),
                     ),
@@ -1181,10 +1183,10 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
       padding: const EdgeInsets.only(bottom: 8),
       child: Text(
         title,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w600,
-          color: AppColors.textPrimary,
+          color: context.textPrimaryColor,
         ),
       ),
     );
@@ -1202,9 +1204,9 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
       textDirection: textDirection,
       child: Container(
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: context.surfaceColor,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.border),
+          border: Border.all(color: context.borderColor),
         ),
         child: TextField(
           controller: controller,
@@ -1212,10 +1214,10 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
           maxLines: maxLines,
           textDirection: textDirection,
           textAlign: TextAlign.left,
-          style: const TextStyle(color: AppColors.textPrimary),
+          style: TextStyle(color: context.textPrimaryColor),
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: const TextStyle(color: AppColors.textHint),
+            hintStyle: TextStyle(color: context.textSecondaryColor),
             hintTextDirection: textDirection,
             border: InputBorder.none,
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -1284,18 +1286,18 @@ class _StableLtrTextFieldState extends State<_StableLtrTextField> {
       textDirection: widget.textDirection,
       child: Container(
         decoration: BoxDecoration(
-          color: AppColors.background,
+          color: context.cardColor,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppColors.border),
+          border: Border.all(color: context.borderColor),
         ),
         child: TextField(
           controller: _controller,
           textDirection: widget.textDirection,
           textAlign: TextAlign.left,
-          style: const TextStyle(color: AppColors.textPrimary, fontSize: 13),
+          style: TextStyle(color: context.textPrimaryColor, fontSize: 13),
           decoration: InputDecoration(
             hintText: widget.hint,
-            hintStyle: const TextStyle(color: AppColors.textHint, fontSize: 13),
+            hintStyle: TextStyle(color: context.textSecondaryColor, fontSize: 13),
             hintTextDirection: widget.textDirection,
             border: InputBorder.none,
             contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),

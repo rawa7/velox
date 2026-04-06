@@ -7,6 +7,7 @@ class User {
   final int isActive;
   final String? createdAt;
   final String? usertype; // "5" = bronze, others = gold/silver/plat
+  final String? usertypeName; // e.g. "Bronze", "Silver", "Gold", "Platinum"
 
   User({
     required this.id,
@@ -17,6 +18,7 @@ class User {
     required this.isActive,
     this.createdAt,
     this.usertype,
+    this.usertypeName,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -29,6 +31,7 @@ class User {
       isActive: int.parse(json['is_active'].toString()),
       createdAt: json['created_at'],
       usertype: json['usertype']?.toString(),
+      usertypeName: json['usertype_name']?.toString(),
     );
   }
 
@@ -42,10 +45,15 @@ class User {
       'is_active': isActive,
       'created_at': createdAt,
       'usertype': usertype,
+      'usertype_name': usertypeName,
     };
   }
-  
-  // Helper method to check if user has bronze account (usertype = "5")
-  bool get isBronzeAccount => usertype == '5';
-}
 
+  bool get isBronzeAccount => usertype == '5';
+
+  /// True for Silver-tier accounts — hides 3rd-party websites & Add Order.
+  /// Matches by usertype ID ("1") or by name once the backend returns it.
+  bool get isSilverAccount =>
+      usertype == '1' ||
+      usertypeName?.toLowerCase().trim() == 'silver';
+}

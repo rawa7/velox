@@ -83,7 +83,7 @@ $websites = [];
 while ($row = mysqli_fetch_assoc($result)) {
     // Add full image URL if web_path exists
     if (!empty($row['web_path'])) {
-        $row['image_url'] = 'http://ruyadream.com/velox' . $row['web_path'];
+        $row['image_url'] = 'https://veloxshoppingiq.com' . $row['web_path'];
     } else {
         $row['image_url'] = null;
     }

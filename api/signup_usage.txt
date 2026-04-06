@@ -47,7 +47,7 @@ EXAMPLES:
 ---------
 
 1. BASIC SIGNUP (MINIMUM REQUIRED FIELDS):
-   curl -X POST "https://ruyadream.com/velox/api/signup.php" \
+   curl -X POST "https://veloxshoppingiq.com/api/signup.php" \
      -H "Content-Type: application/json" \
      -d '{
        "name": "John Doe",
@@ -57,7 +57,7 @@ EXAMPLES:
      }'
 
 2. FULL SIGNUP (WITH OPTIONAL FIELDS):
-   curl -X POST "https://ruyadream.com/velox/api/signup.php" \
+   curl -X POST "https://veloxshoppingiq.com/api/signup.php" \
      -H "Content-Type: application/json" \
      -d '{
        "name": "Jane Smith",
@@ -70,7 +70,7 @@ EXAMPLES:
      }'
 
 3. SIGNUP WITH FORM DATA (ALTERNATIVE):
-   curl -X POST "https://ruyadream.com/velox/api/signup.php" \
+   curl -X POST "https://veloxshoppingiq.com/api/signup.php" \
      -F "name=John Doe" \
      -F "phone=+1234567890" \
      -F "address=123 Main St" \

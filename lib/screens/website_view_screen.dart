@@ -31,7 +31,7 @@ class _WebsiteViewScreenState extends State<WebsiteViewScreen> {
   void _initWebView() {
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setBackgroundColor(AppColors.background)
+      ..setBackgroundColor(const Color(0xFFF8F2DA))
       ..setNavigationDelegate(
         NavigationDelegate(
           onProgress: (int progress) {
@@ -167,26 +167,29 @@ class _WebsiteViewScreenState extends State<WebsiteViewScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    // Sync WebView background to theme (light/dark) when we have context
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    _controller.setBackgroundColor(isDark ? AppColors.background : const Color(0xFFF8F2DA));
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: context.scaffoldBg,
       appBar: AppBar(
-        backgroundColor: AppColors.surface,
-        foregroundColor: AppColors.textPrimary,
+        backgroundColor: context.surfaceColor,
+        foregroundColor: context.textPrimaryColor,
         elevation: 0,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               widget.website.name,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: context.textPrimaryColor),
             ),
             if (_currentUrl.isNotEmpty)
               Text(
                 _currentUrl,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 11,
-                  color: AppColors.textSecondary,
+                  color: context.textSecondaryColor,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -196,14 +199,12 @@ class _WebsiteViewScreenState extends State<WebsiteViewScreen> {
         // Home + Refresh moved to top-right
         actions: [
           IconButton(
-            icon: const Icon(Icons.home_outlined, size: 22),
-            color: AppColors.textPrimary,
+            icon: Icon(Icons.home_outlined, size: 22, color: context.textPrimaryColor),
             tooltip: 'Home',
             onPressed: () => _controller.loadRequest(Uri.parse(widget.website.link)),
           ),
           IconButton(
-            icon: const Icon(Icons.refresh, size: 22),
-            color: AppColors.textPrimary,
+            icon: Icon(Icons.refresh, size: 22, color: context.textPrimaryColor),
             tooltip: 'Refresh',
             onPressed: _refresh,
           ),
@@ -213,7 +214,7 @@ class _WebsiteViewScreenState extends State<WebsiteViewScreen> {
           child: _isLoading
               ? LinearProgressIndicator(
                   value: _loadingProgress,
-                  backgroundColor: AppColors.surface,
+                  backgroundColor: context.surfaceColor,
                   color: AppColors.primary,
                 )
               : const SizedBox.shrink(),
@@ -227,20 +228,18 @@ class _WebsiteViewScreenState extends State<WebsiteViewScreen> {
           left: 16,
           right: 16,
         ),
-        decoration: const BoxDecoration(
-          color: AppColors.surface,
-          border: Border(top: BorderSide(color: AppColors.border)),
+        decoration: BoxDecoration(
+          color: context.surfaceColor,
+          border: Border(top: BorderSide(color: context.borderColor)),
         ),
         child: Row(
           children: [
             IconButton(
-              icon: const Icon(Icons.arrow_back_ios, size: 20),
-              color: AppColors.textPrimary,
+              icon: Icon(Icons.arrow_back_ios, size: 20, color: context.textPrimaryColor),
               onPressed: _goBack,
             ),
             IconButton(
-              icon: const Icon(Icons.arrow_forward_ios, size: 20),
-              color: AppColors.textPrimary,
+              icon: Icon(Icons.arrow_forward_ios, size: 20, color: context.textPrimaryColor),
               onPressed: _goForward,
             ),
             const SizedBox(width: 8),
@@ -250,16 +249,16 @@ class _WebsiteViewScreenState extends State<WebsiteViewScreen> {
                 onPressed: _orderCurrentPage,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
+                  foregroundColor: context.textPrimaryColor,
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
                   ),
                 ),
-                icon: const Icon(Icons.add_shopping_cart, size: 20),
+                icon: Icon(Icons.add_shopping_cart, size: 20, color: context.textPrimaryColor),
                 label: Text(
                   l10n.order,
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: context.textPrimaryColor),
                 ),
               ),
             ),

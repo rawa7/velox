@@ -32,6 +32,8 @@ class Order {
   final String? currencySymbol;
   final String? currencyName;
   final String imageUrl;
+  /// Order total in Iraqi Dinar (for display)
+  final String totalDinar;
 
   Order({
     required this.id,
@@ -67,7 +69,15 @@ class Order {
     this.currencySymbol,
     this.currencyName,
     required this.imageUrl,
+    this.totalDinar = '0',
   });
+
+  /// Total to show in dinar: uses totalDinar when non-zero, otherwise totalPrice.
+  double get displayTotal {
+    final d = double.tryParse(totalDinar);
+    if (d != null && d > 0) return d;
+    return double.tryParse(totalPrice) ?? 0;
+  }
 
   factory Order.fromJson(Map<String, dynamic> json) {
     return Order(
@@ -104,6 +114,7 @@ class Order {
       currencySymbol: json['currency_symbol']?.toString(),
       currencyName: json['currency_name']?.toString(),
       imageUrl: json['image_url']?.toString() ?? '',
+      totalDinar: json['total_dinar']?.toString() ?? json['converttodinar']?.toString() ?? '0',
     );
   }
 }

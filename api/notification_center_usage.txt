@@ -19,7 +19,7 @@ USAGE METHODS:
 
 METHOD 1: Web Interface (Easiest)
 ----------------------------------
-Open in browser: https://ruyadream.com/velox/api/notification_panel.php
+Open in browser: https://veloxshoppingiq.com/api/notification_panel.php
 
 Features:
 - Notify customers by order status
@@ -31,7 +31,7 @@ METHOD 2: API Calls (For automation/cron jobs)
 -----------------------------------------------
 
 1. NOTIFY BY ORDER STATUS (INDIVIDUAL NOTIFICATIONS PER ORDER):
-   curl -X POST "https://ruyadream.com/velox/api/notification_center.php" \
+   curl -X POST "https://veloxshoppingiq.com/api/notification_center.php" \
      -H "Content-Type: application/json" \
      -d '{
        "action": "notify_by_status",
@@ -60,12 +60,12 @@ METHOD 2: API Calls (For automation/cron jobs)
    - {qty} - Replaced with quantity
 
 2. PAYMENT REMINDERS:
-   curl -X POST "https://ruyadream.com/velox/api/notification_center.php" \
+   curl -X POST "https://veloxshoppingiq.com/api/notification_center.php" \
      -H "Content-Type: application/json" \
      -d '{"action": "notify_pending_payments"}'
 
 3. SEND ANNOUNCEMENT TO ALL:
-   curl -X POST "https://ruyadream.com/velox/api/notification_center.php" \
+   curl -X POST "https://veloxshoppingiq.com/api/notification_center.php" \
      -H "Content-Type: application/json" \
      -d '{
        "action": "send_announcement",
@@ -74,7 +74,7 @@ METHOD 2: API Calls (For automation/cron jobs)
      }'
 
 4. CUSTOM NOTIFICATION:
-   curl -X POST "https://ruyadream.com/velox/api/notification_center.php" \
+   curl -X POST "https://veloxshoppingiq.com/api/notification_center.php" \
      -H "Content-Type: application/json" \
      -d '{
        "action": "custom_notification",
@@ -113,12 +113,12 @@ CRON JOB SETUP (Optional):
 To send daily payment reminders, add to crontab:
 
 # Send payment reminders every day at 10 AM
-0 10 * * * curl -X POST "https://ruyadream.com/velox/api/notification_center.php" \
+0 10 * * * curl -X POST "https://veloxshoppingiq.com/api/notification_center.php" \
   -H "Content-Type: application/json" \
   -d '{"action":"notify_pending_payments"}' > /dev/null 2>&1
 
 # Notify processing orders every Monday at 9 AM
-0 9 * * 1 curl -X POST "https://ruyadream.com/velox/api/notification_center.php" \
+0 9 * * 1 curl -X POST "https://veloxshoppingiq.com/api/notification_center.php" \
   -H "Content-Type: application/json" \
   -d '{"action":"notify_by_status","status_id":2}' > /dev/null 2>&1
 

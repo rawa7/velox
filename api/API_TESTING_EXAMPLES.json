@@ -1,6 +1,6 @@
 {
   "account_deletion_api": {
-    "endpoint": "https://ruyadream.com/velox/api/deactivate_account.php",
+    "endpoint": "https://veloxshoppingiq.com/api/deactivate_account.php",
     "method": "POST",
     "headers": {
       "Content-Type": "application/json"
@@ -31,11 +31,11 @@
         "message": "Phone number and password are required."
       }
     },
-    "curl_example": "curl -X POST https://ruyadream.com/velox/api/deactivate_account.php -H 'Content-Type: application/json' -d '{\"phone\":\"07501234567\",\"password\":\"userpass\"}'"
+    "curl_example": "curl -X POST https://veloxshoppingiq.com/api/deactivate_account.php -H 'Content-Type: application/json' -d '{\"phone\":\"07501234567\",\"password\":\"userpass\"}'"
   },
   
   "save_fcm_token": {
-    "endpoint": "https://ruyadream.com/velox/api/save_fcm.php",
+    "endpoint": "https://veloxshoppingiq.com/api/save_fcm.php",
     "method": "POST",
     "headers": {
       "Content-Type": "application/json"
@@ -46,11 +46,11 @@
       "platform": "ios",
       "device_id": "unique_device_id"
     },
-    "curl_example": "curl -X POST https://ruyadream.com/velox/api/save_fcm.php -H 'Content-Type: application/json' -d '{\"token\":\"fcm_token\",\"customer_id\":123,\"platform\":\"ios\"}'"
+    "curl_example": "curl -X POST https://veloxshoppingiq.com/api/save_fcm.php -H 'Content-Type: application/json' -d '{\"token\":\"fcm_token\",\"customer_id\":123,\"platform\":\"ios\"}'"
   },
   
   "delete_fcm_token": {
-    "endpoint": "https://ruyadream.com/velox/api/delete_fcm.php",
+    "endpoint": "https://veloxshoppingiq.com/api/delete_fcm.php",
     "method": "POST",
     "headers": {
       "Content-Type": "application/json"
@@ -60,11 +60,11 @@
       "customer_id": 123
     },
     "note": "Called when user logs out or deletes account",
-    "curl_example": "curl -X POST https://ruyadream.com/velox/api/delete_fcm.php -H 'Content-Type: application/json' -d '{\"token\":\"fcm_token\",\"customer_id\":123}'"
+    "curl_example": "curl -X POST https://veloxshoppingiq.com/api/delete_fcm.php -H 'Content-Type: application/json' -d '{\"token\":\"fcm_token\",\"customer_id\":123}'"
   },
   
   "send_notification": {
-    "endpoint": "https://ruyadream.com/velox/api/send_notification.php",
+    "endpoint": "https://veloxshoppingiq.com/api/send_notification.php",
     "method": "POST",
     "headers": {
       "Content-Type": "application/json"
@@ -92,7 +92,7 @@
   
   "swift_example_account_deletion": {
     "description": "Swift code example for iOS app",
-    "code": "func deleteAccount(phone: String, password: String, completion: @escaping (Bool, String) -> Void) {\n    let url = URL(string: \"https://ruyadream.com/velox/api/deactivate_account.php\")!\n    var request = URLRequest(url: url)\n    request.httpMethod = \"POST\"\n    request.setValue(\"application/json\", forHTTPHeaderField: \"Content-Type\")\n    \n    let body: [String: String] = [\"phone\": phone, \"password\": password]\n    request.httpBody = try? JSONSerialization.data(withJSONObject: body)\n    \n    URLSession.shared.dataTask(with: request) { data, response, error in\n        guard let data = data, error == nil else {\n            completion(false, \"Network error\")\n            return\n        }\n        \n        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],\n           let success = json[\"success\"] as? Bool,\n           let message = json[\"message\"] as? String {\n            completion(success, message)\n        } else {\n            completion(false, \"Invalid response\")\n        }\n    }.resume()\n}"
+    "code": "func deleteAccount(phone: String, password: String, completion: @escaping (Bool, String) -> Void) {\n    let url = URL(string: \"https://veloxshoppingiq.com/api/deactivate_account.php\")!\n    var request = URLRequest(url: url)\n    request.httpMethod = \"POST\"\n    request.setValue(\"application/json\", forHTTPHeaderField: \"Content-Type\")\n    \n    let body: [String: String] = [\"phone\": phone, \"password\": password]\n    request.httpBody = try? JSONSerialization.data(withJSONObject: body)\n    \n    URLSession.shared.dataTask(with: request) { data, response, error in\n        guard let data = data, error == nil else {\n            completion(false, \"Network error\")\n            return\n        }\n        \n        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],\n           let success = json[\"success\"] as? Bool,\n           let message = json[\"message\"] as? String {\n            completion(success, message)\n        } else {\n            completion(false, \"Invalid response\")\n        }\n    }.resume()\n}"
   },
   
   "ios_ui_example": {

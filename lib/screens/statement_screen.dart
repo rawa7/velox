@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../constants/app_colors.dart';
+import '../constants/currency.dart';
 import '../services/api_service.dart';
 import '../services/storage_service.dart';
 import '../models/user_model.dart';
@@ -50,9 +51,9 @@ class _StatementScreenState extends State<StatementScreen> {
     final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: context.scaffoldBg,
       appBar: AppBar(
-        backgroundColor: AppColors.surface,
+        backgroundColor: context.surfaceColor,
         foregroundColor: AppColors.textPrimary,
         elevation: 0,
         title: Text(l10n.accountStatement),
@@ -173,7 +174,7 @@ class _StatementScreenState extends State<StatementScreen> {
           ),
           const SizedBox(height: 16),
           Text(
-            '\$${NumberFormat('#,##0.00').format(balance.abs())}',
+            AppCurrency.format(balance.abs()),
             style: const TextStyle(
               fontSize: 36,
               fontWeight: FontWeight.bold,
@@ -217,28 +218,28 @@ class _StatementScreenState extends State<StatementScreen> {
           const SizedBox(height: 16),
           _buildSummaryRow(
             l10n.totalPurchases,
-            '\$${NumberFormat('#,##0.00').format(financial.completedPurchasesValue)}',
+            AppCurrency.format(financial.completedPurchasesValue),
             AppColors.primary,
           ),
           _buildSummaryRow(
             l10n.totalPayments,
-            '\$${NumberFormat('#,##0.00').format(financial.totalPayments)}',
+            AppCurrency.format(financial.totalPayments),
             AppColors.success,
           ),
           _buildSummaryRow(
             l10n.ordersAwaitingPayment,
-            '\$${NumberFormat('#,##0.00').format(financial.ordersAwaitingPayment)}',
+            AppCurrency.format(financial.ordersAwaitingPayment),
             AppColors.warning,
           ),
           const Divider(color: AppColors.border, height: 24),
           _buildSummaryRow(
             l10n.debtLimit,
-            '\$${NumberFormat('#,##0.00').format(_statementData!.customer.debtLimit)}',
+            AppCurrency.format(_statementData!.customer.debtLimit),
             AppColors.info,
           ),
           _buildSummaryRow(
             l10n.availableCapacity,
-            '\$${NumberFormat('#,##0.00').format(financial.availableCapacity)}',
+            AppCurrency.format(financial.availableCapacity),
             AppColors.success,
           ),
         ],
@@ -444,7 +445,7 @@ class _StatementScreenState extends State<StatementScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '\$${NumberFormat('#,##0.00').format(payment.amount)}',
+                  AppCurrency.format(payment.amount),
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,

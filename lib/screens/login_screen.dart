@@ -54,7 +54,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (result['success'] == true) {
         await StorageService.saveUser(result['user']);
-        await FirebaseNotificationService().saveTokenToBackend();
+        try {
+          await FirebaseNotificationService().saveTokenToBackend();
+        } catch (_) {
+          // Firebase may not be initialized; don't block navigation
+        }
 
         if (!mounted) return;
 
@@ -166,7 +170,7 @@ class _LoginScreenState extends State<LoginScreen> {
     return PopScope(
       canPop: false,
       child: Scaffold(
-        backgroundColor: AppColors.background,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: SafeArea(
           child: SingleChildScrollView(
             child: Padding(

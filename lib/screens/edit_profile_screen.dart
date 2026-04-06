@@ -58,9 +58,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final userName = _user?.name ?? '';
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: context.scaffoldBg,
       appBar: AppBar(
-        backgroundColor: AppColors.surface,
+        backgroundColor: context.surfaceColor,
         foregroundColor: AppColors.textPrimary,
         elevation: 0,
         title: Text(l10n.profile),

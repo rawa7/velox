@@ -95,7 +95,7 @@ No authentication token required. Users identify themselves using their phone nu
 
 ### Using cURL with Phone Number
 ```bash
-curl -X POST https://ruyadream.com/velox/api/change_password.php \
+curl -X POST https://veloxshoppingiq.com/api/change_password.php \
   -d "phone=07501234567" \
   -d "current_password=oldpass123" \
   -d "new_password=newpass456"
@@ -103,7 +103,7 @@ curl -X POST https://ruyadream.com/velox/api/change_password.php \
 
 ### Using cURL with Customer ID
 ```bash
-curl -X POST https://ruyadream.com/velox/api/change_password.php \
+curl -X POST https://veloxshoppingiq.com/api/change_password.php \
   -d "customer_id=123" \
   -d "current_password=oldpass123" \
   -d "new_password=newpass456"
@@ -116,7 +116,7 @@ formData.append('phone', '07501234567');
 formData.append('current_password', 'oldpass123');
 formData.append('new_password', 'newpass456');
 
-fetch('https://ruyadream.com/velox/api/change_password.php', {
+fetch('https://veloxshoppingiq.com/api/change_password.php', {
     method: 'POST',
     body: formData
 })
@@ -143,7 +143,7 @@ Future<void> changePassword({
   required String newPassword,
 }) async {
   final response = await http.post(
-    Uri.parse('https://ruyadream.com/velox/api/change_password.php'),
+    Uri.parse('https://veloxshoppingiq.com/api/change_password.php'),
     body: {
       if (phone != null) 'phone': phone,
       if (customerId != null) 'customer_id': customerId.toString(),
@@ -180,7 +180,7 @@ await changePassword(
 ## Testing
 A test page is available at:
 ```
-https://ruyadream.com/velox/api/test_change_password.html
+https://veloxshoppingiq.com/api/test_change_password.html
 ```
 
 This page provides an interactive form to test the API endpoint with real-time response display.

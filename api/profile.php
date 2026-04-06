@@ -62,16 +62,17 @@ $customer = mysqli_fetch_assoc($customer_result);
 $password_exists = !empty($customer['password']);
 unset($customer['password']);
 
-// Get customer's balance
+// All amounts in Iraqi Dinar (د.ع)
+// Balance = total payments (dinar) - total paid items (total_dinar)
 $balance_query = "SELECT 
                 (SELECT COALESCE(SUM(amount), 0) FROM buyerpay WHERE buyerid = $customer_id) -
-                (SELECT COALESCE(SUM(totalprice), 0) FROM items WHERE customer_id = $customer_id AND paymentstatus = 1) 
+                (SELECT COALESCE(SUM(COALESCE(NULLIF(TRIM(total_dinar), ''), 0)), 0) FROM items WHERE customer_id = $customer_id AND paymentstatus = 1) 
                 AS available_balance";
 $balance_result = query($balance_query);
 $customer_balance = floatval(mysqli_fetch_assoc($balance_result)['available_balance'] ?? 0);
 
-// Calculate approved unpaid orders
-$approved_unpaid_query = "SELECT COALESCE(SUM(totalprice), 0) as approved_unpaid 
+// Approved unpaid orders total in dinar
+$approved_unpaid_query = "SELECT COALESCE(SUM(COALESCE(NULLIF(TRIM(total_dinar), ''), 0)), 0) as approved_unpaid 
                          FROM items 
                          WHERE customer_id = $customer_id 
                          AND status IN (3, 4, -1, 16, 17, 19) 
@@ -79,11 +80,11 @@ $approved_unpaid_query = "SELECT COALESCE(SUM(totalprice), 0) as approved_unpaid
 $approved_unpaid_result = query($approved_unpaid_query);
 $approved_unpaid_total = floatval(mysqli_fetch_assoc($approved_unpaid_result)['approved_unpaid'] ?? 0);
 
-// Get debt limit
+// Get debt limit (in dinar)
 $customer_debt_limit = floatval($customer['debt_limit'] ?? 0);
 $customer_usertype_name = $customer['usertype_name'] ?? 'Unknown';
 
-// Calculate available capacity
+// Available capacity in dinar
 $customer_available_capacity = $customer_balance + $customer_debt_limit - $approved_unpaid_total;
 
 // Get total items count
@@ -91,20 +92,20 @@ $total_items_query = "SELECT COUNT(*) as total_items FROM items WHERE customer_i
 $total_items_result = mysqli_query($conn, $total_items_query);
 $total_items = intval(mysqli_fetch_assoc($total_items_result)['total_items'] ?? 0);
 
-// Get total purchases (all orders total)
-$total_purchases_query = "SELECT COALESCE(SUM(CASE WHEN totalprice IS NOT NULL AND totalprice != '' THEN totalprice ELSE itemprice END), 0) as total_purchases 
+// Total purchases in dinar (all orders total_dinar)
+$total_purchases_query = "SELECT COALESCE(SUM(COALESCE(NULLIF(TRIM(total_dinar), ''), 0)), 0) as total_purchases 
                          FROM items 
                          WHERE customer_id = $customer_id";
 $total_purchases_result = mysqli_query($conn, $total_purchases_query);
 $total_purchases = floatval(mysqli_fetch_assoc($total_purchases_result)['total_purchases'] ?? 0);
 
-// Get total payments made
+// Total payments made (buyerpay.amount assumed in dinar)
 $total_payments_query = "SELECT COALESCE(SUM(amount), 0) as total_payments FROM buyerpay WHERE buyerid = $customer_id";
 $total_payments_result = mysqli_query($conn, $total_payments_query);
 $total_payments = floatval(mysqli_fetch_assoc($total_payments_result)['total_payments'] ?? 0);
 
-// Get total paid items
-$total_paid_items_query = "SELECT COALESCE(SUM(totalprice), 0) as total_paid FROM items WHERE customer_id = $customer_id AND paymentstatus = 1";
+// Total paid items in dinar
+$total_paid_items_query = "SELECT COALESCE(SUM(COALESCE(NULLIF(TRIM(total_dinar), ''), 0)), 0) as total_paid FROM items WHERE customer_id = $customer_id AND paymentstatus = 1";
 $total_paid_items_result = mysqli_query($conn, $total_paid_items_query);
 $total_paid_items = floatval(mysqli_fetch_assoc($total_paid_items_result)['total_paid'] ?? 0);
 
@@ -138,19 +139,19 @@ echo json_encode([
             'customer_id' => $customer_id,
             'customer_name' => $customer['name'],
             'customer_code' => 'C' . $customer_id,
-            'current_balance' => round($customer_balance, 2),
+            'current_balance' => round($customer_balance, 0),
             'account_type' => $customer_usertype_name,
-            'debt_limit' => round($customer_debt_limit, 2),
-            'orders_awaiting_payment' => round($approved_unpaid_total, 2),
-            'available_capacity' => round($customer_available_capacity, 2)
+            'debt_limit' => round($customer_debt_limit, 0),
+            'orders_awaiting_payment' => round($approved_unpaid_total, 0),
+            'available_capacity' => round($customer_available_capacity, 0)
         ],
         'summary' => [
             'total_items' => $total_items,
             'active_items' => $active_items,
             'excluded_items' => $excluded_count,
-            'total_purchases' => round($total_purchases, 2),
-            'total_payments' => round($total_payments, 2),
-            'total_paid_items' => round($total_paid_items, 2)
+            'total_purchases' => round($total_purchases, 0),
+            'total_payments' => round($total_payments, 0),
+            'total_paid_items' => round($total_paid_items, 0)
         ]
     ]
 ]);

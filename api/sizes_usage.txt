@@ -12,30 +12,30 @@ USAGE:
 ------
 
 1. GET ALL SIZES:
-   http://ruyadream.com/velox/api/sizes.php
+   https://veloxshoppingiq.com/api/sizes.php
 
 2. SEARCH SIZES:
-   http://ruyadream.com/velox/api/sizes.php?search=XL
+   https://veloxshoppingiq.com/api/sizes.php?search=XL
 
 
 EXAMPLES:
 ---------
 
 1. cURL - Get all sizes:
-   curl "http://ruyadream.com/velox/api/sizes.php"
+   curl "https://veloxshoppingiq.com/api/sizes.php"
 
 2. cURL - Search for sizes containing "XL":
-   curl "http://ruyadream.com/velox/api/sizes.php?search=XL"
+   curl "https://veloxshoppingiq.com/api/sizes.php?search=XL"
 
 3. Flutter/Dart:
    final response = await http.get(
-     Uri.parse('http://ruyadream.com/velox/api/sizes.php')
+     Uri.parse('https://veloxshoppingiq.com/api/sizes.php')
    );
    final data = json.decode(response.body);
    List sizes = data['data']['sizes'];
 
 4. JavaScript:
-   fetch('http://ruyadream.com/velox/api/sizes.php')
+   fetch('https://veloxshoppingiq.com/api/sizes.php')
      .then(res => res.json())
      .then(data => console.log(data.data.sizes));
 
@@ -94,7 +94,7 @@ class SizeModel {
 
 // Service
 Future<List<SizeModel>> fetchSizes({String? search}) async {
-  String url = 'http://ruyadream.com/velox/api/sizes.php';
+  String url = 'https://veloxshoppingiq.com/api/sizes.php';
   
   if (search != null && search.isNotEmpty) {
     url += '?search=$search';

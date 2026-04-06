@@ -5,7 +5,7 @@ Successfully integrated the SHEIN cart extraction API into the Velox Flutter app
 
 ## API Endpoint
 ```
-POST https://ruyadream.com/velox/api/shein_extract.php
+POST https://veloxshoppingiq.com/api/shein_extract.php
 ```
 
 ## Features Implemented
@@ -171,7 +171,7 @@ http://api-shein.shein.com/h5/sharejump/appjump?link=lhBZeA2AVi1_b&localcountry=
 
 ### Test Page
 ```
-https://ruyadream.com/velox/api/test_shein_extract.html
+https://veloxshoppingiq.com/api/test_shein_extract.html
 ```
 
 ## Files Modified
