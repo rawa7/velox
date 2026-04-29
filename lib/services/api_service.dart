@@ -13,9 +13,14 @@ import '../models/size_model.dart';
 import '../models/currency_rate_model.dart';
 import '../models/customer_statement_model.dart';
 import '../models/delivery_status_model.dart';
+import '../models/onboarding_slide_model.dart';
 
 class ApiService {
   static const String baseUrl = 'https://veloxshoppingiq.com/api';
+
+  /// Set at build time: `--dart-define=OTPIQ_BEARER_TOKEN=your_token`
+  static const String _otpiqBearerToken =
+      String.fromEnvironment('OTPIQ_BEARER_TOKEN');
 
   // Login API call
   static Future<Map<String, dynamic>> login(
@@ -36,7 +41,10 @@ class ApiService {
       final data = jsonDecode(response.body);
 
       if (response.statusCode == 200 && data['success'] == true) {
-        final user = User.fromJson(data['data']['user']);
+        final raw = data['data'];
+        final user = raw is Map
+            ? User.fromLoginApiData(Map<String, dynamic>.from(raw))
+            : User.fromJson(Map<String, dynamic>.from(data['data']['user']));
         return {
           'success': true,
           'user': user,
@@ -56,12 +64,88 @@ class ApiService {
     }
   }
 
+  /// Returns [available] == true when the number is not yet registered (signup only).
+  static Future<Map<String, dynamic>> checkPhoneAvailable(String phone) async {
+    try {
+      final url = Uri.parse('$baseUrl/check_phone_available.php');
+      final response = await http.post(
+        url,
+        headers: const {'Content-Type': 'application/json'},
+        body: jsonEncode({'phone': phone}),
+      );
+      final decoded = jsonDecode(response.body);
+      final data = decoded is Map<String, dynamic>
+          ? decoded
+          : <String, dynamic>{};
+      if (response.statusCode == 200 && data['success'] == true) {
+        return {
+          'success': true,
+          'available': data['available'] == true,
+          'message': data['message']?.toString() ?? '',
+        };
+      }
+      return {
+        'success': false,
+        'available': false,
+        'message': data['message']?.toString() ?? 'Could not verify phone number',
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'available': false,
+        'message': 'Network error. Please check your connection.',
+      };
+    }
+  }
+
+  // Send OTP via OTPIQ WhatsApp API
+  static Future<Map<String, dynamic>> sendOtp({
+    required String phoneNumber,
+    required String verificationCode,
+  }) async {
+    try {
+      final url = Uri.parse('https://api.otpiq.com/api/sms');
+      final response = await http.post(
+        url,
+        headers: {
+          'Authorization': 'Bearer $_otpiqBearerToken',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'phoneNumber': phoneNumber,
+          'smsType': 'verification',
+          'provider': 'whatsapp',
+          'verificationCode': verificationCode,
+        }),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return {'success': true, 'message': 'OTP sent successfully'};
+      } else {
+        Map<String, dynamic> data = {};
+        try {
+          data = jsonDecode(response.body);
+        } catch (_) {}
+        return {
+          'success': false,
+          'message': data['message'] ?? 'Failed to send verification code',
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Network error. Please try again.',
+      };
+    }
+  }
+
   // Signup API call
   static Future<Map<String, dynamic>> signup({
     required String name,
     required String phone,
     required String address,
     required String password,
+    required int cityId,
     String? email,
     String? instagram,
     String? facebook,
@@ -73,6 +157,7 @@ class ApiService {
         'phone': phone,
         'address': address,
         'password': password,
+        'cityid': cityId,
       };
       
       // Add optional fields if provided
@@ -626,22 +711,58 @@ class ApiService {
     }
   }
 
+  // Deactivate (delete) account
+  static Future<Map<String, dynamic>> deactivateAccount({required int customerId}) async {
+    try {
+      final url = Uri.parse('$baseUrl/deactivate_account.php');
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'customer_id': customerId}),
+      );
+      final data = jsonDecode(response.body);
+      return {
+        'success': data['success'] ?? false,
+        'message': data['message'] ?? '',
+      };
+    } catch (e) {
+      return {'success': false, 'message': 'Network error. Please check your connection.'};
+    }
+  }
+
   // Get profile data
   static Future<Map<String, dynamic>> getProfile({
     required int customerId,
+    /// When set, merges `profile` + `usertype` from the API into this user and returns `user`.
+    User? mergeIntoUser,
   }) async {
     try {
-      final url = Uri.parse('$baseUrl/profile.php?customer_id=$customerId');
-      final response = await http.get(url);
+      final ts = DateTime.now().millisecondsSinceEpoch;
+      final url = Uri.parse(
+        '$baseUrl/profile.php?customer_id=$customerId&_=$ts',
+      );
+      final response = await http.get(
+        url,
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache',
+        },
+      );
 
       final data = jsonDecode(response.body);
 
       if (response.statusCode == 200 && data['success'] == true) {
-        final profileData = ProfileData.fromJson(data['data']);
+        final inner = Map<String, dynamic>.from(data['data'] as Map);
+        final profileData = ProfileData.fromJson(inner);
+        User? mergedUser;
+        if (mergeIntoUser != null) {
+          mergedUser = User.fromUpdateProfileApiData(mergeIntoUser, inner);
+        }
         return {
           'success': true,
           'message': data['message'],
           'data': profileData,
+          if (mergedUser != null) 'user': mergedUser,
         };
       } else {
         return {
@@ -649,6 +770,60 @@ class ApiService {
           'message': data['message'] ?? 'Failed to fetch profile',
         };
       }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Network error. Please check your connection.',
+      };
+    }
+  }
+
+  /// POST [update_profile.php]: merges returned `profile` + `usertype` into [currentUser].
+  /// Caller should persist with [StorageService.saveUser] on success.
+  static Future<Map<String, dynamic>> updateProfile({
+    required User currentUser,
+    String? phone,
+    String? address,
+    String? email,
+  }) async {
+    try {
+      final url = Uri.parse('$baseUrl/update_profile.php');
+      final body = <String, dynamic>{'customer_id': currentUser.id};
+      if (phone != null) body['phone'] = phone;
+      if (address != null) body['address'] = address;
+      if (email != null) body['email'] = email;
+
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(body),
+      );
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && data['success'] == true) {
+        final raw = data['data'];
+        if (raw is Map) {
+          final merged = User.fromUpdateProfileApiData(
+            currentUser,
+            Map<String, dynamic>.from(raw),
+          );
+          return {
+            'success': true,
+            'message': data['message'] ?? 'Profile updated',
+            'user': merged,
+          };
+        }
+        return {
+          'success': true,
+          'message': data['message'] ?? 'Profile updated',
+          'user': currentUser,
+        };
+      }
+      return {
+        'success': false,
+        'message': data['message'] ?? 'Failed to update profile',
+      };
     } catch (e) {
       return {
         'success': false,
@@ -934,6 +1109,7 @@ class ApiService {
           'items': data['items'] ?? [],
           'total_items': data['total_items'] ?? 0,
           'total_price': (data['total_price'] ?? 0).toDouble(),
+          'is_cart_share': data['is_cart_share'] == true,
         };
       } else {
         return {
@@ -942,6 +1118,7 @@ class ApiService {
           'items': [],
           'total_items': 0,
           'total_price': 0.0,
+          'is_cart_share': false,
         };
       }
     } catch (e) {
@@ -951,6 +1128,124 @@ class ApiService {
         'items': [],
         'total_items': 0,
         'total_price': 0.0,
+      };
+    }
+  }
+
+  // Get onboarding slides
+  static Future<Map<String, dynamic>> getOnboardingSlides() async {
+    try {
+      final url = Uri.parse('$baseUrl/onboarding_slides.php');
+      final response = await http.get(url);
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && data['success'] == true) {
+        final slidesList = data['slides'] as List;
+        final slides = slidesList
+            .map((s) => OnboardingSlide.fromJson(s))
+            .toList()
+          ..sort((a, b) => a.slideOrder.compareTo(b.slideOrder));
+        return {
+          'success': true,
+          'slides': slides,
+        };
+      } else {
+        return {
+          'success': false,
+          'message': 'Failed to load onboarding slides',
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Network error: $e',
+      };
+    }
+  }
+
+  /// Universal server-side product extractor.
+  ///
+  /// Works for most e-commerce sites (Zara, Noon, H&M, Trendyol, Amazon,
+  /// Mango, ASOS, AliExpress, etc.) by letting the backend fetch the page
+  /// with browser-like headers and parse JSON-LD / OpenGraph / site-specific
+  /// data. Returns a normalized result shaped like [extractSheinSingleProduct]
+  /// so callers can use a single code path.
+  ///
+  /// Successful response:
+  /// ```
+  /// {
+  ///   'success': true,
+  ///   'name':    String,
+  ///   'image':   String?,
+  ///   'images':  List<String>,
+  ///   'price':   double,        // 0.0 if unknown
+  ///   'currency':String?,
+  ///   'sku':     String,
+  ///   'site':    String,
+  /// }
+  /// ```
+  static Future<Map<String, dynamic>> extractGenericProduct(String productUrl) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/extract_product.php'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'url': productUrl}),
+          )
+          .timeout(const Duration(seconds: 30));
+
+      Map<String, dynamic> data;
+      try {
+        data = jsonDecode(response.body) as Map<String, dynamic>;
+      } catch (_) {
+        return {
+          'success': false,
+          'message': 'Invalid response from extractor',
+        };
+      }
+
+      if (response.statusCode == 200 && data['success'] == true) {
+        final images = <String>[];
+        final rawImages = data['images'];
+        if (rawImages is List) {
+          for (final img in rawImages) {
+            final s = img?.toString() ?? '';
+            if (s.isNotEmpty) images.add(s);
+          }
+        }
+
+        final priceRaw = data['price'];
+        double price = 0.0;
+        if (priceRaw is num) {
+          price = priceRaw.toDouble();
+        } else if (priceRaw != null) {
+          price = double.tryParse(priceRaw.toString()) ?? 0.0;
+        }
+
+        return {
+          'success': true,
+          'name': data['name']?.toString() ?? '',
+          'image': data['image']?.toString() ??
+              (images.isNotEmpty ? images.first : ''),
+          'images': images,
+          'price': price,
+          'currency': data['currency']?.toString(),
+          'good_sn': data['sku']?.toString() ?? '',
+          'sku': data['sku']?.toString() ?? '',
+          'site': data['site']?.toString() ?? 'generic',
+        };
+      }
+
+      return {
+        'success': false,
+        'message': data['message']?.toString() ??
+            'Could not extract product details from this page.',
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Network error: $e',
       };
     }
   }
@@ -980,8 +1275,81 @@ class ApiService {
         return {
           'success': false,
           'message': data['error']?.toString() ?? 'Failed to extract product',
+          'is_cart_share': data['is_cart_share'] == true,
         };
       }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Network error: $e',
+      };
+    }
+  }
+
+  /// Extract a single noon.com product by URL via `/api/noon_product.php`,
+  /// which wraps the noon6 RapidAPI service. Returns the same shape as
+  /// [extractSheinSingleProduct] plus an `images` list, so callers can use
+  /// a single code path.
+  ///
+  /// Successful response:
+  /// ```
+  /// {
+  ///   'success': true,
+  ///   'name':    String,
+  ///   'good_sn': String,    // noon SKU
+  ///   'image':   String,    // first image URL
+  ///   'images':  List<String>,
+  ///   'price':   double,    // 0.0 if unknown
+  ///   'brand':   String,
+  ///   'goods_id':String,
+  /// }
+  /// ```
+  static Future<Map<String, dynamic>> extractNoonProduct(String noonUrl) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/noon_product.php'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'url': noonUrl}),
+          )
+          .timeout(const Duration(seconds: 30));
+
+      Map<String, dynamic> data;
+      try {
+        data = jsonDecode(response.body) as Map<String, dynamic>;
+      } catch (_) {
+        return {
+          'success': false,
+          'message': 'Invalid response from noon extractor',
+        };
+      }
+
+      if (response.statusCode == 200 && data['success'] == true) {
+        final product = data['product'] as Map<String, dynamic>? ?? {};
+        final rawImages = product['images'];
+        final images = <String>[];
+        if (rawImages is List) {
+          for (final img in rawImages) {
+            if (img is String && img.isNotEmpty) images.add(img);
+          }
+        }
+        return {
+          'success': true,
+          'name': product['name']?.toString() ?? '',
+          'good_sn': product['goods_sn']?.toString() ?? '',
+          'goods_id': product['goods_id']?.toString() ?? '',
+          'image': product['image']?.toString() ?? '',
+          'images': images,
+          'price': double.tryParse(product['price']?.toString() ?? '') ?? 0.0,
+          'brand': product['brand']?.toString() ?? '',
+        };
+      }
+
+      return {
+        'success': false,
+        'message': data['error']?.toString() ?? 'Failed to extract noon product',
+        'needs_share_url': data['needs_share_url'] == true,
+      };
     } catch (e) {
       return {
         'success': false,

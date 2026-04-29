@@ -76,7 +76,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     }
 
     final totalPrice = widget.item.price * _quantity;
-    final totalFormatted = AppCurrency.format(totalPrice);
+    final totalFormatted = AppCurrency.format(totalPrice, context);
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -117,7 +117,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         return;
       }
 
-      final note = '${widget.item.itemName} x$_quantity @ ${AppCurrency.format(widget.item.price)}';
+      final note = '${widget.item.itemName} x$_quantity @ ${AppCurrency.format(widget.item.price, context)}';
       final response = await ApiService.addOrder(
         customerId: _user!.id,
         link: widget.item.imagePath,
@@ -171,9 +171,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       backgroundColor: context.scaffoldBg,
       body: Stack(
         children: [
-          // Product Image
+          // Product Image — starts below the status bar
           Positioned(
-            top: 0,
+            top: MediaQuery.of(context).padding.top,
             left: 0,
             right: 0,
             height: MediaQuery.of(context).size.height * 0.45,
@@ -214,7 +214,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           ),
           // Product Details
           Positioned(
-            top: MediaQuery.of(context).size.height * 0.4,
+            top: MediaQuery.of(context).padding.top + MediaQuery.of(context).size.height * 0.4,
             left: 0,
             right: 0,
             bottom: 0,
@@ -251,7 +251,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     const SizedBox(height: 8),
                     // Price
                     Text(
-                      AppCurrency.format(widget.item.price),
+                      AppCurrency.format(widget.item.price, context),
                       style: const TextStyle(
                         fontSize: 26,
                         fontWeight: FontWeight.bold,
@@ -340,7 +340,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                               ),
                             ),
                             Text(
-                              AppCurrency.format(totalPrice),
+                              AppCurrency.format(totalPrice, context),
                               style: const TextStyle(
                                 fontSize: 22,
                                 fontWeight: FontWeight.bold,

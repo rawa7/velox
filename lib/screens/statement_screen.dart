@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import '../constants/app_colors.dart';
 import '../constants/currency.dart';
 import '../services/api_service.dart';
@@ -76,7 +75,7 @@ class _StatementScreenState extends State<StatementScreen> {
                         const SizedBox(height: 20),
 
                         // Financial Summary
-                        _buildFinancialSummary(l10n),
+                        _buildFinancialSummary(context, l10n),
                         const SizedBox(height: 20),
 
                         // Items Summary
@@ -129,14 +128,14 @@ class _StatementScreenState extends State<StatementScreen> {
         gradient: LinearGradient(
           colors: isPositive
               ? [AppColors.success.withOpacity(0.8), AppColors.success]
-              : [AppColors.warning.withOpacity(0.8), AppColors.warning],
+              : [AppColors.error.withOpacity(0.85), AppColors.error],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: (isPositive ? AppColors.success : AppColors.warning).withOpacity(0.3),
+            color: (isPositive ? AppColors.success : AppColors.error).withOpacity(0.3),
             blurRadius: 15,
             offset: const Offset(0, 8),
           ),
@@ -174,7 +173,7 @@ class _StatementScreenState extends State<StatementScreen> {
           ),
           const SizedBox(height: 16),
           Text(
-            AppCurrency.format(balance.abs()),
+            AppCurrency.format(balance.abs(), context),
             style: const TextStyle(
               fontSize: 36,
               fontWeight: FontWeight.bold,
@@ -194,60 +193,74 @@ class _StatementScreenState extends State<StatementScreen> {
     );
   }
 
-  Widget _buildFinancialSummary(AppLocalizations l10n) {
+  Widget _buildFinancialSummary(BuildContext context, AppLocalizations l10n) {
     final financial = _statementData!.financialSummary;
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+    final muted = Theme.of(context).brightness == Brightness.dark
+        ? AppColors.textSecondary
+        : LightColors.textSecondary;
 
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: context.surfaceColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: context.borderColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             l10n.financialSummary,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary,
+              color: onSurface,
             ),
           ),
           const SizedBox(height: 16),
           _buildSummaryRow(
             l10n.totalPurchases,
-            AppCurrency.format(financial.completedPurchasesValue),
+            AppCurrency.format(financial.completedPurchasesValue, context),
             AppColors.primary,
+            labelColor: muted,
           ),
           _buildSummaryRow(
             l10n.totalPayments,
-            AppCurrency.format(financial.totalPayments),
+            AppCurrency.format(financial.totalPayments, context),
             AppColors.success,
+            labelColor: muted,
           ),
           _buildSummaryRow(
             l10n.ordersAwaitingPayment,
-            AppCurrency.format(financial.ordersAwaitingPayment),
-            AppColors.warning,
+            AppCurrency.format(financial.ordersAwaitingPayment, context),
+            onSurface,
+            labelColor: muted,
           ),
-          const Divider(color: AppColors.border, height: 24),
+          Divider(color: context.borderColor, height: 24),
           _buildSummaryRow(
             l10n.debtLimit,
-            AppCurrency.format(_statementData!.customer.debtLimit),
-            AppColors.info,
+            AppCurrency.format(_statementData!.customer.debtLimit, context),
+            onSurface,
+            labelColor: muted,
           ),
           _buildSummaryRow(
             l10n.availableCapacity,
-            AppCurrency.format(financial.availableCapacity),
+            AppCurrency.format(financial.availableCapacity, context),
             AppColors.success,
+            labelColor: muted,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildSummaryRow(String label, String value, Color color) {
+  Widget _buildSummaryRow(
+    String label,
+    String value,
+    Color color, {
+    required Color labelColor,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
@@ -255,9 +268,9 @@ class _StatementScreenState extends State<StatementScreen> {
         children: [
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
-              color: AppColors.textSecondary,
+              color: labelColor,
             ),
           ),
           Text(
@@ -321,7 +334,7 @@ class _StatementScreenState extends State<StatementScreen> {
                 child: _buildStatCard(
                   l10n.waiting,
                   items.pendingCount.toString(),
-                  AppColors.warning,
+                  AppColors.error,
                 ),
               ),
               const SizedBox(width: 12),
@@ -445,7 +458,7 @@ class _StatementScreenState extends State<StatementScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  AppCurrency.format(payment.amount),
+                  AppCurrency.format(payment.amount, context),
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,

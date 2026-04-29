@@ -42,6 +42,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       debugPrint('Error loading notifications: $e');
     }
 
+    // Same as tapping "Mark all read": clear server unread state when opening this screen.
+    if (mounted && _user != null && _unreadCount > 0) {
+      await _markAllAsRead();
+    }
+
     if (mounted) {
       setState(() => _isLoading = false);
     }
@@ -123,7 +128,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       case 'delivery':
         return AppColors.info;
       case 'promo':
-        return AppColors.warning;
+        return AppColors.primary;
       default:
         return AppColors.textSecondary;
     }
@@ -157,7 +162,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         elevation: 0,
         title: Row(
           children: [
-            Text('Notifications', style: TextStyle(color: context.textPrimaryColor)),
+            Text(AppLocalizations.of(context)!.notifications, style: TextStyle(color: context.textPrimaryColor)),
             if (_unreadCount > 0) ...[
               const SizedBox(width: 8),
               Container(
@@ -178,16 +183,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             ],
           ],
         ),
-        actions: [
-          if (_unreadCount > 0)
-            TextButton(
-              onPressed: _markAllAsRead,
-              child: Text(
-                'Mark all read',
-                style: TextStyle(color: AppColors.primary),
-              ),
-            ),
-        ],
       ),
       body: RefreshIndicator(
         onRefresh: _loadNotifications,

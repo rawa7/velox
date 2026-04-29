@@ -94,7 +94,10 @@ $update_query = "UPDATE buyer SET " . implode(', ', $update_fields) . " WHERE id
 
 if (mysqli_query($conn, $update_query)) {
     // Get updated customer data
-    $customer_query = "SELECT b.*, ut.name as usertype_name 
+    $customer_query = "SELECT b.*, ut.name as usertype_name, ut.limitt as debt_limit,
+                              ut.color1 AS usertype_color1,
+                              ut.color2 AS usertype_color2,
+                              ut.text_color AS usertype_text_color
                       FROM buyer b 
                       LEFT JOIN usertype ut ON b.usertype = ut.id 
                       WHERE b.id = $customer_id";
@@ -103,12 +106,22 @@ if (mysqli_query($conn, $update_query)) {
     
     // Remove password from response
     unset($customer['password']);
+
+    $usertype_info = [
+        'id'         => intval($customer['usertype']),
+        'name'       => $customer['usertype_name'] ?? null,
+        'limit'      => isset($customer['debt_limit']) ? intval($customer['debt_limit']) : null,
+        'color1'     => $customer['usertype_color1'] ?? null,
+        'color2'     => $customer['usertype_color2'] ?? null,
+        'text_color' => $customer['usertype_text_color'] ?? null,
+    ];
     
     http_response_code(200);
     echo json_encode([
         'success' => true,
         'message' => 'Profile updated successfully.',
         'data' => [
+            'usertype' => $usertype_info,
             'profile' => [
                 'id' => $customer['id'],
                 'name' => $customer['name'],

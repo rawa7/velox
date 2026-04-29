@@ -7,8 +7,10 @@ import '../services/firebase_notification_service.dart';
 import '../services/language_service.dart';
 import '../main.dart';
 import '../generated/app_localizations.dart';
+import '../utils/phone_utils.dart';
 import 'signup_screen.dart';
-import 'main_navigation.dart';
+import '../models/user_model.dart';
+import '../utils/post_auth_navigation.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -48,12 +50,14 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      final result = await ApiService.login(phone, password);
+      final normalizedPhone = PhoneUtils.normalizeLoginPhone(phone);
+      final result = await ApiService.login(normalizedPhone, password);
 
       if (!mounted) return;
 
       if (result['success'] == true) {
-        await StorageService.saveUser(result['user']);
+        final user = result['user'] as User;
+        await StorageService.saveUser(user);
         try {
           await FirebaseNotificationService().saveTokenToBackend();
         } catch (_) {
@@ -62,10 +66,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
         if (!mounted) return;
 
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const MainNavigation()),
-        );
+        await PostAuthNavigation.replaceFromLogin(context, user);
       } else {
         setState(() {
           _errorMessage = result['message'] ?? 'Login failed';
@@ -87,86 +88,85 @@ class _LoginScreenState extends State<LoginScreen> {
   void _showLanguageDialog() {
     final languages = LanguageService.getSupportedLanguages();
 
+    final sheetSurface = context.surfaceColor;
+    final sheetBorder  = context.borderColor;
+    final sheetPrimary = context.textPrimaryColor;
+    final sheetSecond  = context.textSecondaryColor;
+
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppColors.surface,
+      backgroundColor: sheetSurface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.symmetric(vertical: 12),
-              decoration: BoxDecoration(
-                color: AppColors.border,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(
-                AppLocalizations.of(context)!.selectLanguage,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
+      builder: (ctx) => Material(
+        color: sheetSurface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  color: sheetBorder,
+                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
-            ),
-            ...languages.map((lang) => ListTile(
-                  leading: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(
-                      Icons.language,
-                      color: AppColors.primary,
-                    ),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  AppLocalizations.of(ctx)!.selectLanguage,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: sheetPrimary,
                   ),
-                  title: Text(
-                    lang.nativeName,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
+                ),
+              ),
+              ...languages.map((lang) => ListTile(
+                    tileColor: sheetSurface,
+                    leading: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.language, color: AppColors.primary),
                     ),
-                  ),
-                  subtitle: Text(
-                    lang.name,
-                    style: const TextStyle(color: AppColors.textSecondary),
-                  ),
-                  onTap: () async {
-                    await LanguageService.setLanguage(lang.locale.languageCode);
-                    if (mounted) {
-                      MyApp.setLocale(context, lang.locale);
-                      Navigator.pop(context);
-                    }
-                  },
-                )),
-            const SizedBox(height: 16),
-          ],
+                    title: Text(
+                      lang.nativeName,
+                      style: TextStyle(fontWeight: FontWeight.w600, color: sheetPrimary),
+                    ),
+                    subtitle: Text(
+                      lang.name,
+                      style: TextStyle(color: sheetSecond),
+                    ),
+                    onTap: () async {
+                      await LanguageService.setLanguage(lang.locale.languageCode);
+                      if (mounted) {
+                        MyApp.setLocale(context, lang.locale);
+                        Navigator.pop(ctx);
+                      }
+                    },
+                  )),
+              const SizedBox(height: 16),
+            ],
+          ),
         ),
       ),
-    );
-  }
-
-  void _continueAsGuest() {
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => const MainNavigation()),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    
+    final w = MediaQuery.sizeOf(context).width;
+    final logoSize = (w * 0.58).clamp(178.0, 255.0);
+
     return PopScope(
       canPop: false,
       child: Scaffold(
@@ -178,82 +178,43 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Top bar with language selector
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      TextButton.icon(
-                        onPressed: _continueAsGuest,
-                        icon: const Icon(
-                          Icons.person_outline,
-                          color: AppColors.textSecondary,
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: IconButton(
+                      onPressed: _showLanguageDialog,
+                      icon: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: context.surfaceColor,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: context.borderColor),
                         ),
-                        label: Text(
-                          l10n.continueAsGuest,
-                          style: const TextStyle(
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: _showLanguageDialog,
-                        icon: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: AppColors.surface,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: AppColors.border),
-                          ),
-                          child: const Icon(
-                            Icons.language,
-                            color: AppColors.primary,
-                            size: 20,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 40),
-                  // Logo
-                  Center(
-                    child: Container(
-                      width: 120,
-                      height: 120,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            AppColors.primary.withOpacity(0.2),
-                            AppColors.secondary.withOpacity(0.1),
-                          ],
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.primary.withOpacity(0.3),
-                            blurRadius: 30,
-                            spreadRadius: 5,
-                          ),
-                        ],
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(20.0),
-                        child: Image.asset(
-                          'assets/logo.png',
-                          fit: BoxFit.contain,
-                          errorBuilder: (context, error, stackTrace) {
-                            return const Icon(
-                              Icons.local_shipping,
-                              size: 60,
-                              color: AppColors.primary,
-                            );
-                          },
+                        child: const Icon(
+                          Icons.language,
+                          color: AppColors.primary,
+                          size: 20,
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 8),
+                  // Logo
+                  Center(
+                    child: Image.asset(
+                      'assets/logo.png',
+                      width: logoSize,
+                      height: logoSize,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Icon(
+                          Icons.local_shipping,
+                          size: logoSize * 0.72,
+                          color: AppColors.primary,
+                        );
+                      },
+                    ),
+                  ),
+                  SizedBox(height: logoSize * 0.08),
                   // Welcome text
                   Center(
                     child: ShaderMask(
@@ -316,20 +277,20 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 8),
                   Container(
                     decoration: BoxDecoration(
-                      color: AppColors.surface,
+                      color: context.surfaceColor,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.border),
+                      border: Border.all(color: context.borderColor),
                     ),
                     child: TextField(
                       controller: _phoneController,
                       keyboardType: TextInputType.phone,
-                      style: const TextStyle(color: AppColors.textPrimary),
+                      style: TextStyle(color: context.textPrimaryColor),
                       inputFormatters: [
                         FilteringTextInputFormatter.digitsOnly,
                       ],
                       decoration: InputDecoration(
                         hintText: l10n.enterPhone,
-                        hintStyle: const TextStyle(color: AppColors.textHint),
+                        hintStyle: TextStyle(color: context.textSecondaryColor),
                         prefixIcon: const Icon(Icons.phone_outlined, color: AppColors.primary),
                         border: InputBorder.none,
                         contentPadding: const EdgeInsets.all(16),
@@ -349,22 +310,22 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 8),
                   Container(
                     decoration: BoxDecoration(
-                      color: AppColors.surface,
+                      color: context.surfaceColor,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.border),
+                      border: Border.all(color: context.borderColor),
                     ),
                     child: TextField(
                       controller: _passwordController,
                       obscureText: _obscurePassword,
-                      style: const TextStyle(color: AppColors.textPrimary),
+                      style: TextStyle(color: context.textPrimaryColor),
                       decoration: InputDecoration(
                         hintText: l10n.enterPassword,
-                        hintStyle: const TextStyle(color: AppColors.textHint),
+                        hintStyle: TextStyle(color: context.textSecondaryColor),
                         prefixIcon: const Icon(Icons.lock_outline, color: AppColors.primary),
                         suffixIcon: IconButton(
                           icon: Icon(
                             _obscurePassword ? Icons.visibility_off : Icons.visibility,
-                            color: AppColors.textSecondary,
+                            color: context.textSecondaryColor,
                           ),
                           onPressed: () {
                             setState(() {
@@ -425,8 +386,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       children: [
                         Text(
                           l10n.dontHaveAnAccount,
-                          style: const TextStyle(
-                            color: AppColors.textSecondary,
+                          style: TextStyle(
+                            color: context.textSecondaryColor,
                             fontSize: 14,
                           ),
                         ),

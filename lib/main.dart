@@ -6,8 +6,10 @@ import 'utils/app_theme.dart';
 import 'services/language_service.dart';
 import 'services/storage_service.dart';
 import 'services/theme_service.dart';
-import 'screens/login_screen.dart';
 import 'screens/main_navigation.dart';
+import 'screens/language_selection_screen.dart';
+import 'screens/welcome_screen.dart';
+import 'screens/onboarding_screen.dart';
 import 'generated/app_localizations.dart';
 
 // Firebase imports - commented out until configured
@@ -50,7 +52,7 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   Locale _locale = const Locale('en');
-  ThemeMode _themeMode = ThemeMode.dark;
+  ThemeMode _themeMode = ThemeMode.light;
 
   @override
   void initState() {
@@ -128,27 +130,19 @@ class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
-  late Animation<double> _scaleAnimation;
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
-      duration: const Duration(milliseconds: 1500),
+      duration: const Duration(milliseconds: 900),
       vsync: this,
     );
 
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _controller,
-        curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
-      ),
-    );
-
-    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
+        curve: const Interval(0.0, 0.7, curve: Curves.easeOut),
       ),
     );
 
@@ -161,15 +155,27 @@ class _SplashScreenState extends State<SplashScreen>
 
     if (!mounted) return;
 
+    final initialLaunchDone = await StorageService.hasCompletedInitialLaunch();
     final isLoggedIn = await StorageService.isLoggedIn();
 
     if (!mounted) return;
 
+    Widget destination;
+    if (!initialLaunchDone) {
+      destination = const LanguageSelectionScreen();
+    } else if (isLoggedIn) {
+      destination = const MainNavigation();
+    } else {
+      final seenOnboarding = await StorageService.hasSeenOnboarding();
+      destination = seenOnboarding
+          ? const WelcomeScreen()
+          : const OnboardingScreen(exitToMain: false);
+    }
+
     Navigator.pushReplacement(
       context,
       PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) =>
-            isLoggedIn ? const MainNavigation() : const LoginScreen(),
+        pageBuilder: (context, animation, secondaryAnimation) => destination,
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return FadeTransition(
             opacity: animation,
@@ -187,103 +193,46 @@ class _SplashScreenState extends State<SplashScreen>
     super.dispose();
   }
 
+  /// Sampled from corner pixels of `assets/logo.png` (same as the logo’s flat canvas).
+  static const Color _splashLogoBackground = Color(0xFFF8F2DA);
+
   @override
   Widget build(BuildContext context) {
+    final w = MediaQuery.sizeOf(context).width;
+    // Large mark: most of the screen width, capped for tablets.
+    final logoSize = (w * 0.72).clamp(260.0, 360.0);
+
     return Scaffold(
-      backgroundColor: AppColors.background,
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              AppColors.background,
-              AppColors.backgroundSecondary,
-            ],
-          ),
-        ),
-        child: Center(
-          child: FadeTransition(
-            opacity: _fadeAnimation,
-            child: ScaleTransition(
-              scale: _scaleAnimation,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // Logo container with glow effect
-                  Container(
-                    width: 140,
-                    height: 140,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          AppColors.primary.withOpacity(0.3),
-                          AppColors.secondary.withOpacity(0.2),
-                        ],
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.primary.withOpacity(0.4),
-                          blurRadius: 40,
-                          spreadRadius: 10,
-                        ),
-                      ],
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(20.0),
-                      child: Image.asset(
-                        'assets/logo.png',
-                        fit: BoxFit.contain,
-                        errorBuilder: (context, error, stackTrace) {
-                          return const Icon(
-                            Icons.local_shipping,
-                            size: 80,
-                            color: AppColors.primary,
-                          );
-                        },
-                      ),
-                    ),
+      backgroundColor: _splashLogoBackground,
+      body: FadeTransition(
+        opacity: _fadeAnimation,
+        child: SafeArea(
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Image.asset(
+                  'assets/logo.png',
+                  width: logoSize,
+                  height: logoSize,
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) => Icon(
+                    Icons.local_shipping_rounded,
+                    size: logoSize * 0.65,
+                    color: AppColors.primary,
                   ),
-                  const SizedBox(height: 32),
-                  // App name with gradient text
-                  ShaderMask(
-                    shaderCallback: (bounds) => const LinearGradient(
-                      colors: AppColors.primaryGradient,
-                    ).createShader(bounds),
-                    child: const Text(
-                      'Velox',
-                      style: TextStyle(
-                        fontSize: 48,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                        letterSpacing: 4,
-                      ),
-                    ),
+                ),
+                SizedBox(height: logoSize * 0.14),
+                SizedBox(
+                  width: 38,
+                  height: 38,
+                  child: CircularProgressIndicator(
+                    color: AppColors.primary,
+                    strokeWidth: 3,
+                    strokeCap: StrokeCap.round,
                   ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Fast & Reliable Shipping',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: AppColors.textSecondary,
-                      letterSpacing: 2,
-                    ),
-                  ),
-                  const SizedBox(height: 60),
-                  // Loading indicator
-                  const SizedBox(
-                    width: 40,
-                    height: 40,
-                    child: CircularProgressIndicator(
-                      color: AppColors.primary,
-                      strokeWidth: 3,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),

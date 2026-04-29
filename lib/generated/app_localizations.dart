@@ -292,6 +292,54 @@ abstract class AppLocalizations {
   /// **'Paste product link here'**
   String get pasteProductLink;
 
+  /// No description provided for @productLinkHelper.
+  ///
+  /// In en, this message translates to:
+  /// **'Add any SHEIN cart or individual item from any website. Paste the link, then tap «Extract from link».'**
+  String get productLinkHelper;
+
+  /// No description provided for @dataExtraction.
+  ///
+  /// In en, this message translates to:
+  /// **'Data extraction'**
+  String get dataExtraction;
+
+  /// No description provided for @extractFromLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Extract from link'**
+  String get extractFromLink;
+
+  /// No description provided for @extractingFromLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Extracting...'**
+  String get extractingFromLink;
+
+  /// No description provided for @productDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Product details'**
+  String get productDetails;
+
+  /// No description provided for @productDetailsExtracted.
+  ///
+  /// In en, this message translates to:
+  /// **'Product details extracted'**
+  String get productDetailsExtracted;
+
+  /// No description provided for @cartItemsExtracted.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} cart items extracted'**
+  String cartItemsExtracted(int count);
+
+  /// No description provided for @sizeHintExample.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. M, L, XL, One Size...'**
+  String get sizeHintExample;
+
   /// No description provided for @getDataFromLink.
   ///
   /// In en, this message translates to:
@@ -417,6 +465,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Color'**
   String get color;
+
+  /// No description provided for @itemCodeOrName.
+  ///
+  /// In en, this message translates to:
+  /// **'Item code/name'**
+  String get itemCodeOrName;
 
   /// No description provided for @size.
   ///
@@ -592,6 +646,12 @@ abstract class AppLocalizations {
   /// **'Tax'**
   String get tax;
 
+  /// No description provided for @taxWithPercentLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Tax (6%)'**
+  String get taxWithPercentLabel;
+
   /// No description provided for @totalPrice.
   ///
   /// In en, this message translates to:
@@ -643,7 +703,7 @@ abstract class AppLocalizations {
   /// No description provided for @confirmAccept.
   ///
   /// In en, this message translates to:
-  /// **'Confirm Accept'**
+  /// **'Order Confirmation'**
   String get confirmAccept;
 
   /// No description provided for @confirmApprove.
@@ -988,6 +1048,12 @@ abstract class AppLocalizations {
   /// **'Contact Support'**
   String get contactSupport;
 
+  /// No description provided for @profileChangeDetailsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Please contact support to change details.'**
+  String get profileChangeDetailsHint;
+
   /// No description provided for @rateOurApp.
   ///
   /// In en, this message translates to:
@@ -1072,6 +1138,12 @@ abstract class AppLocalizations {
   /// **'For assistance, please contact our support team.\n\nPhone: +964 750 774 6088\nEmail: support@veloxshipping.com'**
   String get helpMessage;
 
+  /// No description provided for @chatOnWhatsApp.
+  ///
+  /// In en, this message translates to:
+  /// **'Chat on WhatsApp'**
+  String get chatOnWhatsApp;
+
   /// No description provided for @ok.
   ///
   /// In en, this message translates to:
@@ -1119,6 +1191,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Total Items'**
   String get totalItems;
+
+  /// No description provided for @orderItemsSectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} items'**
+  String orderItemsSectionTitle(int count);
+
+  /// No description provided for @outOfStock.
+  ///
+  /// In en, this message translates to:
+  /// **'This item is out of stock.'**
+  String get outOfStock;
+
+  /// No description provided for @exchangeRateItemToUsd.
+  ///
+  /// In en, this message translates to:
+  /// **'Rate (item currency → USD)'**
+  String get exchangeRateItemToUsd;
+
+  /// No description provided for @exchangeRateUsdToIqd.
+  ///
+  /// In en, this message translates to:
+  /// **'Rate (USD → IQD)'**
+  String get exchangeRateUsdToIqd;
 
   /// No description provided for @active.
   ///
@@ -1342,6 +1438,12 @@ abstract class AppLocalizations {
   /// **'Continue as Guest'**
   String get continueAsGuest;
 
+  /// No description provided for @skipAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip account'**
+  String get skipAccount;
+
   /// No description provided for @signIn.
   ///
   /// In en, this message translates to:
@@ -1359,6 +1461,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Full Name'**
   String get fullName;
+
+  /// No description provided for @city.
+  ///
+  /// In en, this message translates to:
+  /// **'City'**
+  String get city;
+
+  /// No description provided for @selectCity.
+  ///
+  /// In en, this message translates to:
+  /// **'Select your city'**
+  String get selectCity;
+
+  /// No description provided for @pleaseSelectCity.
+  ///
+  /// In en, this message translates to:
+  /// **'Please select your city'**
+  String get pleaseSelectCity;
 
   /// No description provided for @enterYourFullName.
   ///
@@ -1563,6 +1683,180 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Use a strong password to protect your account'**
   String get passwordTip2;
+
+  /// No description provided for @pendingPrice.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending Price'**
+  String get pendingPrice;
+
+  /// No description provided for @notifications.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications'**
+  String get notifications;
+
+  /// No description provided for @lightMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Light Mode'**
+  String get lightMode;
+
+  /// No description provided for @darkMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Dark Mode'**
+  String get darkMode;
+
+  /// No description provided for @welcomeToVelox.
+  ///
+  /// In en, this message translates to:
+  /// **'Welcome to Velox'**
+  String get welcomeToVelox;
+
+  /// No description provided for @haveAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Do you have an account?'**
+  String get haveAccount;
+
+  /// No description provided for @iHaveAnAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Yes, Sign In'**
+  String get iHaveAnAccount;
+
+  /// No description provided for @createNewAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Create New Account'**
+  String get createNewAccount;
+
+  /// No description provided for @enterPhoneToRegister.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your phone number to get started'**
+  String get enterPhoneToRegister;
+
+  /// No description provided for @sendVerificationCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Send Verification Code'**
+  String get sendVerificationCode;
+
+  /// No description provided for @verifyYourPhone.
+  ///
+  /// In en, this message translates to:
+  /// **'Verify Your Phone'**
+  String get verifyYourPhone;
+
+  /// No description provided for @codeSentTo.
+  ///
+  /// In en, this message translates to:
+  /// **'Code sent to {phone}'**
+  String codeSentTo(String phone);
+
+  /// No description provided for @verificationCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Verification Code'**
+  String get verificationCode;
+
+  /// No description provided for @enterVerificationCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the 6-digit code'**
+  String get enterVerificationCode;
+
+  /// No description provided for @verify.
+  ///
+  /// In en, this message translates to:
+  /// **'Verify'**
+  String get verify;
+
+  /// No description provided for @resendCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Resend Code'**
+  String get resendCode;
+
+  /// No description provided for @resendIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Resend in {seconds}s'**
+  String resendIn(int seconds);
+
+  /// No description provided for @completeYourProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Complete Your Profile'**
+  String get completeYourProfile;
+
+  /// No description provided for @almostThere.
+  ///
+  /// In en, this message translates to:
+  /// **'Almost there! Fill in your details'**
+  String get almostThere;
+
+  /// No description provided for @otpSentSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Verification code sent via WhatsApp'**
+  String get otpSentSuccess;
+
+  /// No description provided for @invalidOtpCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid code. Please try again.'**
+  String get invalidOtpCode;
+
+  /// No description provided for @phoneAlreadyRegistered.
+  ///
+  /// In en, this message translates to:
+  /// **'Phone already registered. Please sign in.'**
+  String get phoneAlreadyRegistered;
+
+  /// No description provided for @step1of3.
+  ///
+  /// In en, this message translates to:
+  /// **'Step 1 of 3'**
+  String get step1of3;
+
+  /// No description provided for @step2of3.
+  ///
+  /// In en, this message translates to:
+  /// **'Step 2 of 3'**
+  String get step2of3;
+
+  /// No description provided for @step3of3.
+  ///
+  /// In en, this message translates to:
+  /// **'Step 3 of 3'**
+  String get step3of3;
+
+  /// No description provided for @whatsappCode.
+  ///
+  /// In en, this message translates to:
+  /// **'You will receive a code on WhatsApp'**
+  String get whatsappCode;
+
+  /// No description provided for @back.
+  ///
+  /// In en, this message translates to:
+  /// **'Back'**
+  String get back;
+
+  /// No description provided for @myQrCode.
+  ///
+  /// In en, this message translates to:
+  /// **'My code'**
+  String get myQrCode;
+
+  /// No description provided for @customerCodeUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Code not available'**
+  String get customerCodeUnavailable;
 }
 
 class _AppLocalizationsDelegate

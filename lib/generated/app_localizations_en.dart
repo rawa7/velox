@@ -105,6 +105,33 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pasteProductLink => 'Paste product link here';
 
   @override
+  String get productLinkHelper =>
+      'Add any SHEIN cart or individual item from any website. Paste the link, then tap «Extract from link».';
+
+  @override
+  String get dataExtraction => 'Data extraction';
+
+  @override
+  String get extractFromLink => 'Extract from link';
+
+  @override
+  String get extractingFromLink => 'Extracting...';
+
+  @override
+  String get productDetails => 'Product details';
+
+  @override
+  String get productDetailsExtracted => 'Product details extracted';
+
+  @override
+  String cartItemsExtracted(int count) {
+    return '$count cart items extracted';
+  }
+
+  @override
+  String get sizeHintExample => 'e.g. M, L, XL, One Size...';
+
+  @override
   String get getDataFromLink => 'Get Data From Link';
 
   @override
@@ -167,6 +194,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get color => 'Color';
+
+  @override
+  String get itemCodeOrName => 'Item code/name';
 
   @override
   String get size => 'Size';
@@ -256,6 +286,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tax => 'Tax';
 
   @override
+  String get taxWithPercentLabel => 'Tax (6%)';
+
+  @override
   String get totalPrice => 'Total Price';
 
   @override
@@ -280,7 +313,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get rejectOrder => 'Reject Order';
 
   @override
-  String get confirmAccept => 'Confirm Accept';
+  String get confirmAccept => 'Order Confirmation';
 
   @override
   String get confirmApprove => 'Confirm Approve';
@@ -455,6 +488,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get contactSupport => 'Contact Support';
 
   @override
+  String get profileChangeDetailsHint =>
+      'Please contact support to change details.';
+
+  @override
   String get rateOurApp => 'Rate our app';
 
   @override
@@ -498,6 +535,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'For assistance, please contact our support team.\n\nPhone: +964 750 774 6088\nEmail: support@veloxshipping.com';
 
   @override
+  String get chatOnWhatsApp => 'Chat on WhatsApp';
+
+  @override
   String get ok => 'OK';
 
   @override
@@ -522,6 +562,20 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get totalItems => 'Total Items';
+
+  @override
+  String orderItemsSectionTitle(int count) {
+    return '$count items';
+  }
+
+  @override
+  String get outOfStock => 'This item is out of stock.';
+
+  @override
+  String get exchangeRateItemToUsd => 'Rate (item currency → USD)';
+
+  @override
+  String get exchangeRateUsdToIqd => 'Rate (USD → IQD)';
 
   @override
   String get active => 'Active';
@@ -638,6 +692,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get continueAsGuest => 'Continue as Guest';
 
   @override
+  String get skipAccount => 'Skip account';
+
+  @override
   String get signIn => 'Sign in';
 
   @override
@@ -645,6 +702,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fullName => 'Full Name';
+
+  @override
+  String get city => 'City';
+
+  @override
+  String get selectCity => 'Select your city';
+
+  @override
+  String get pleaseSelectCity => 'Please select your city';
 
   @override
   String get enterYourFullName => 'Enter your full name';
@@ -754,4 +820,96 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get passwordTip2 => 'Use a strong password to protect your account';
+
+  @override
+  String get pendingPrice => 'Pending Price';
+
+  @override
+  String get notifications => 'Notifications';
+
+  @override
+  String get lightMode => 'Light Mode';
+
+  @override
+  String get darkMode => 'Dark Mode';
+
+  @override
+  String get welcomeToVelox => 'Welcome to Velox';
+
+  @override
+  String get haveAccount => 'Do you have an account?';
+
+  @override
+  String get iHaveAnAccount => 'Yes, Sign In';
+
+  @override
+  String get createNewAccount => 'Create New Account';
+
+  @override
+  String get enterPhoneToRegister => 'Enter your phone number to get started';
+
+  @override
+  String get sendVerificationCode => 'Send Verification Code';
+
+  @override
+  String get verifyYourPhone => 'Verify Your Phone';
+
+  @override
+  String codeSentTo(String phone) {
+    return 'Code sent to $phone';
+  }
+
+  @override
+  String get verificationCode => 'Verification Code';
+
+  @override
+  String get enterVerificationCode => 'Enter the 6-digit code';
+
+  @override
+  String get verify => 'Verify';
+
+  @override
+  String get resendCode => 'Resend Code';
+
+  @override
+  String resendIn(int seconds) {
+    return 'Resend in ${seconds}s';
+  }
+
+  @override
+  String get completeYourProfile => 'Complete Your Profile';
+
+  @override
+  String get almostThere => 'Almost there! Fill in your details';
+
+  @override
+  String get otpSentSuccess => 'Verification code sent via WhatsApp';
+
+  @override
+  String get invalidOtpCode => 'Invalid code. Please try again.';
+
+  @override
+  String get phoneAlreadyRegistered =>
+      'Phone already registered. Please sign in.';
+
+  @override
+  String get step1of3 => 'Step 1 of 3';
+
+  @override
+  String get step2of3 => 'Step 2 of 3';
+
+  @override
+  String get step3of3 => 'Step 3 of 3';
+
+  @override
+  String get whatsappCode => 'You will receive a code on WhatsApp';
+
+  @override
+  String get back => 'Back';
+
+  @override
+  String get myQrCode => 'My code';
+
+  @override
+  String get customerCodeUnavailable => 'Code not available';
 }

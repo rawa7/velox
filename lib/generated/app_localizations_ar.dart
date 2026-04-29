@@ -105,6 +105,33 @@ class AppLocalizationsAr extends AppLocalizations {
   String get pasteProductLink => 'الصق رابط المنتج هنا';
 
   @override
+  String get productLinkHelper =>
+      'أضف أي سلة تسوق من شي إن أو منتج فردي من أي موقع. الصق الرابط ثم اضغط «استخراج من الرابط».';
+
+  @override
+  String get dataExtraction => 'استخراج البيانات';
+
+  @override
+  String get extractFromLink => 'استخراج من الرابط';
+
+  @override
+  String get extractingFromLink => 'جاري الاستخراج...';
+
+  @override
+  String get productDetails => 'تفاصيل المنتج';
+
+  @override
+  String get productDetailsExtracted => 'تم استخراج تفاصيل المنتج';
+
+  @override
+  String cartItemsExtracted(int count) {
+    return 'تم استخراج $count عنصرًا من السلة';
+  }
+
+  @override
+  String get sizeHintExample => 'مثل: M، L، XL، مقاس واحد...';
+
+  @override
   String get getDataFromLink => 'جلب البيانات من الرابط';
 
   @override
@@ -166,6 +193,9 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get color => 'اللون';
+
+  @override
+  String get itemCodeOrName => 'رمز / اسم المنتج';
 
   @override
   String get size => 'المقاس';
@@ -255,6 +285,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get tax => 'الضريبة';
 
   @override
+  String get taxWithPercentLabel => 'الضريبة (٪٦)';
+
+  @override
   String get totalPrice => 'السعر الإجمالي';
 
   @override
@@ -279,7 +312,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get rejectOrder => 'رفض الطلب';
 
   @override
-  String get confirmAccept => 'تأكيد القبول';
+  String get confirmAccept => 'تأكيد الطلب';
 
   @override
   String get confirmApprove => 'تأكيد الموافقة';
@@ -453,6 +486,10 @@ class AppLocalizationsAr extends AppLocalizations {
   String get contactSupport => 'الاتصال بالدعم';
 
   @override
+  String get profileChangeDetailsHint =>
+      'يرجى التواصل مع الدعم لتغيير البيانات.';
+
+  @override
   String get rateOurApp => 'قيم تطبيقنا';
 
   @override
@@ -496,6 +533,9 @@ class AppLocalizationsAr extends AppLocalizations {
       'للمساعدة، يرجى الاتصال بفريق الدعم.\n\nالهاتف: +964 750 774 6088\nالبريد الإلكتروني: support@veloxshipping.com';
 
   @override
+  String get chatOnWhatsApp => 'محادثة عبر واتساب';
+
+  @override
   String get ok => 'حسناً';
 
   @override
@@ -520,6 +560,20 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get totalItems => 'إجمالي العناصر';
+
+  @override
+  String orderItemsSectionTitle(int count) {
+    return '$count عنصرًا';
+  }
+
+  @override
+  String get outOfStock => 'هذا المنتج غير متوفر.';
+
+  @override
+  String get exchangeRateItemToUsd => 'سعر الصرف (عملة المنتج → دولار)';
+
+  @override
+  String get exchangeRateUsdToIqd => 'سعر الصرف (دولار → دينار)';
 
   @override
   String get active => 'نشط';
@@ -636,6 +690,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get continueAsGuest => 'متابعة كضيف';
 
   @override
+  String get skipAccount => 'تخطي الحساب';
+
+  @override
   String get signIn => 'تسجيل الدخول';
 
   @override
@@ -643,6 +700,15 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get fullName => 'الاسم الكامل';
+
+  @override
+  String get city => 'المدينة';
+
+  @override
+  String get selectCity => 'اختر مدينتك';
+
+  @override
+  String get pleaseSelectCity => 'الرجاء اختيار مدينتك';
 
   @override
   String get enterYourFullName => 'أدخل اسمك الكامل';
@@ -752,4 +818,96 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get passwordTip2 => 'استخدم كلمة مرور قوية لحماية حسابك';
+
+  @override
+  String get pendingPrice => 'السعر قيد الانتظار';
+
+  @override
+  String get notifications => 'الإشعارات';
+
+  @override
+  String get lightMode => 'الوضع الفاتح';
+
+  @override
+  String get darkMode => 'الوضع الداكن';
+
+  @override
+  String get welcomeToVelox => 'مرحباً بك في فيلوكس';
+
+  @override
+  String get haveAccount => 'هل لديك حساب؟';
+
+  @override
+  String get iHaveAnAccount => 'نعم، سجّل الدخول';
+
+  @override
+  String get createNewAccount => 'إنشاء حساب جديد';
+
+  @override
+  String get enterPhoneToRegister => 'أدخل رقم هاتفك للبدء';
+
+  @override
+  String get sendVerificationCode => 'إرسال رمز التحقق';
+
+  @override
+  String get verifyYourPhone => 'تحقق من رقم هاتفك';
+
+  @override
+  String codeSentTo(String phone) {
+    return 'تم إرسال الرمز إلى $phone';
+  }
+
+  @override
+  String get verificationCode => 'رمز التحقق';
+
+  @override
+  String get enterVerificationCode => 'أدخل الرمز المكوّن من 6 أرقام';
+
+  @override
+  String get verify => 'تحقق';
+
+  @override
+  String get resendCode => 'إعادة إرسال الرمز';
+
+  @override
+  String resendIn(int seconds) {
+    return 'إعادة الإرسال خلال $seconds ثانية';
+  }
+
+  @override
+  String get completeYourProfile => 'أكمل ملفك الشخصي';
+
+  @override
+  String get almostThere => 'اقتربت! أدخل بياناتك';
+
+  @override
+  String get otpSentSuccess => 'تم إرسال رمز التحقق عبر واتساب';
+
+  @override
+  String get invalidOtpCode => 'رمز غير صحيح. حاول مرة أخرى.';
+
+  @override
+  String get phoneAlreadyRegistered =>
+      'رقم الهاتف مسجل مسبقاً. الرجاء تسجيل الدخول.';
+
+  @override
+  String get step1of3 => 'الخطوة 1 من 3';
+
+  @override
+  String get step2of3 => 'الخطوة 2 من 3';
+
+  @override
+  String get step3of3 => 'الخطوة 3 من 3';
+
+  @override
+  String get whatsappCode => 'ستصلك رسالة على واتساب تحتوي على الرمز';
+
+  @override
+  String get back => 'رجوع';
+
+  @override
+  String get myQrCode => 'رمزي';
+
+  @override
+  String get customerCodeUnavailable => 'الرمز غير متوفر';
 }

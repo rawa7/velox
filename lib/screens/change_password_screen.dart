@@ -229,7 +229,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.lightbulb_outline, color: AppColors.warning, size: 20),
+                        const Icon(Icons.lightbulb_outline, color: AppColors.primary, size: 20),
                         const SizedBox(width: 8),
                         Text(
                           l10n.passwordTips,

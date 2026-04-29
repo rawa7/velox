@@ -15,6 +15,9 @@ class AddOrderScreen extends StatefulWidget {
   final String? initialName;
   final String? initialSerial;
   final String? initialImageUrl;
+  /// Optional pre-downloaded image file to use as the product image (e.g. a
+  /// WebView screenshot captured when the site exposed no extractable image).
+  final File? initialImageFile;
 
   const AddOrderScreen({
     super.key,
@@ -22,6 +25,7 @@ class AddOrderScreen extends StatefulWidget {
     this.initialName,
     this.initialSerial,
     this.initialImageUrl,
+    this.initialImageFile,
   });
 
   @override
@@ -52,6 +56,12 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
   double _singlePrice = 0.0;
   String? _singleProductImageUrl;
 
+  /// Extracts the first http/https URL from [text], stripping any leading junk.
+  String _extractUrl(String text) {
+    final match = RegExp(r'https?://\S+').firstMatch(text);
+    return match != null ? match.group(0)! : text;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -59,8 +69,24 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
     if (widget.initialUrl != null) {
       _urlController.text = widget.initialUrl!;
     }
+    _urlController.addListener(() {
+      final raw = _urlController.text;
+      // Only process if the text contains a URL but doesn't start with http
+      if (raw.contains('http') && !raw.trimLeft().startsWith('http')) {
+        final extracted = _extractUrl(raw);
+        if (extracted != raw) {
+          _urlController.value = _urlController.value.copyWith(
+            text: extracted,
+            selection: TextSelection.collapsed(offset: extracted.length),
+          );
+        }
+      }
+    });
     // Pre-populate from WebView extraction if provided
-    if (widget.initialName != null || widget.initialSerial != null || widget.initialImageUrl != null) {
+    if (widget.initialName != null ||
+        widget.initialSerial != null ||
+        widget.initialImageUrl != null ||
+        widget.initialImageFile != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _applyInitialProductData();
       });
@@ -71,18 +97,29 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
     if (!mounted) return;
     setState(() {
       _showCartItems = false;
-      if (widget.initialName != null && widget.initialName!.isNotEmpty) {
-        _singleItemName = widget.initialName!;
-      }
+      final codeNameParts = <String>[];
       if (widget.initialSerial != null && widget.initialSerial!.isNotEmpty) {
-        _singleSerial = widget.initialSerial!;
+        codeNameParts.add(widget.initialSerial!);
       }
+      if (widget.initialName != null && widget.initialName!.isNotEmpty) {
+        codeNameParts.add(widget.initialName!);
+      }
+      _singleItemName = codeNameParts.join(' · ');
+      _singleSerial = '';
       if (widget.initialImageUrl != null && widget.initialImageUrl!.isNotEmpty) {
         _singleProductImageUrl = widget.initialImageUrl;
       }
+      // If a pre-downloaded file (e.g. a WebView screenshot) was passed,
+      // use it directly as the main image.
+      if (widget.initialImageFile != null) {
+        _mainImage = widget.initialImageFile;
+      }
     });
-    // Download the image to a file for submission
-    if (widget.initialImageUrl != null && widget.initialImageUrl!.isNotEmpty) {
+    // Download the remote image to a file for submission, only if we don't
+    // already have a local file from the caller.
+    if (widget.initialImageFile == null &&
+        widget.initialImageUrl != null &&
+        widget.initialImageUrl!.isNotEmpty) {
       _downloadImageToFile(widget.initialImageUrl!);
     }
   }
@@ -136,6 +173,47 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
     return url.trim().toLowerCase().contains('shein');
   }
 
+  /// Returns true if the given URL looks like a noon.com link.
+  bool _isNoonLink(String url) {
+    final u = url.trim().toLowerCase();
+    return u.contains('noon.com');
+  }
+
+  /// Returns true if the noon URL is a real *product* page URL (has a
+  /// SKU segment and `/p/` marker), as opposed to the category / store
+  /// homepage URLs that noon's mobile web often shows in the address bar.
+  ///
+  /// Noon product URLs look like:
+  ///   https://www.noon.com/uae-en/<slug>/ZEAC849D301D69FA6C298Z/p/?shareId=...
+  ///   https://www.noon.com/saudi-en/<slug>/N70133551V/p/
+  ///
+  /// Non-product URLs we want to reject:
+  ///   https://www.noon.com/uae-en/noon-supermarket/        (store)
+  ///   https://www.noon.com/uae-en/                         (homepage)
+  ///   https://www.noon.com/uae-en/fashion/                 (category)
+  bool _isNoonProductUrl(String url) {
+    if (!_isNoonLink(url)) return false;
+    final u = url.trim();
+    // Noon SKUs are uppercase alphanumerics starting with Z or N and are at
+    // least 10 chars long. They're followed by `/p/` or `/p?...`.
+    final sku = RegExp(r'/([ZN][A-Z0-9]{8,})/p(?:/|\?|$)');
+    return sku.hasMatch(u);
+  }
+
+  /// Returns true if the URL is clearly a SHEIN *cart* share (multiple
+  /// items), as opposed to a single-product share. These links come from
+  /// SHEIN's "Share my cart" feature and should never be collapsed into a
+  /// single-product extraction, because the share landing page also lists
+  /// unrelated recommendations whose IDs would otherwise be mistaken for
+  /// the user's item.
+  bool _isSheinCartShareLink(String url) {
+    final u = url.trim().toLowerCase();
+    return u.contains('sharejump/appjump') ||
+        u.contains('api-shein.shein.com/h5/sharejump') ||
+        u.contains('shein.com/h5/share') ||
+        u.contains('shein.com/share');
+  }
+
   /// Called when user wants to extract from the pasted link. Shows SHEIN options or runs single-product extraction.
   /// Auto-extraction:
   /// - SHEIN link → try full cart first; if no items found, fall back to single product
@@ -146,7 +224,7 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please paste a product or cart link first'),
-          backgroundColor: AppColors.warning,
+          backgroundColor: AppColors.error,
         ),
       );
       return;
@@ -160,13 +238,23 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
   }
 
   /// Try SHEIN cart first; if empty/fails, fall back to single product.
+  /// For URLs that are *clearly* cart shares we never fall back to the
+  /// single-product API, because it would otherwise return an unrelated
+  /// recommendation from the share landing page.
   Future<void> _autoExtractShein(String url) async {
     setState(() => _isFetchingProduct = true);
+
+    final isCartShareUrl = _isSheinCartShareLink(url);
+    bool serverFlaggedCartShare = false;
 
     // ── Step 1: try cart ────────────────────────────────────────────────
     try {
       final cartResult = await ApiService.extractSheinCart(url);
       if (!mounted) return;
+
+      if (cartResult['is_cart_share'] == true) {
+        serverFlaggedCartShare = true;
+      }
 
       final items = cartResult['items'] as List<dynamic>? ?? [];
       if (cartResult['success'] == true && items.isNotEmpty) {
@@ -205,9 +293,10 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
           }
 
           if (mounted) {
+            final loc = AppLocalizations.of(context)!;
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('${cartItemsList.length} cart items extracted'),
+                content: Text(loc.cartItemsExtracted(cartItemsList.length)),
                 backgroundColor: AppColors.success,
               ),
             );
@@ -217,14 +306,66 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
       }
     } catch (_) {}
 
-    // ── Step 2: cart empty/failed → fall back to single product ─────────
-    if (mounted) {
+    // ── Step 2: cart empty/failed ───────────────────────────────────────
+    if (!mounted) return;
+
+    // If the link is clearly a cart share, do NOT fall back to the
+    // single-product API — it would return an unrelated recommendation
+    // (SHEIN's share page shows "You may also like" products that are not
+    // the user's cart contents). Show a cart-specific hint instead.
+    if (isCartShareUrl || serverFlaggedCartShare) {
       setState(() => _isFetchingProduct = false);
-      await _extractSingleProductWithScraper();
+      _showManualEntryHint(
+        message: "We couldn't read the items in this SHEIN cart share. "
+            "Open the link in SHEIN and paste individual product links here, "
+            "or add the items manually.",
+      );
+      return;
     }
+
+    // Not a cart share → fall back to single product as before.
+    setState(() => _isFetchingProduct = false);
+    await _extractSingleProductWithScraper();
   }
 
-  /// Single product only: SHEIN links use the API, others use the web scraper.
+  /// Shown when auto-extraction fails for any reason. Keeps the user in the
+  /// form, prompts them to add the product photo manually, and reveals the
+  /// single-item entry card so they can fill details in by hand.
+  void _showManualEntryHint({String? message}) {
+    if (!mounted) return;
+
+    // Reveal the single-item entry card so the user can enter details by hand.
+    // Anything the user already typed (qty, color, picked image) is preserved.
+    setState(() => _showCartItems = false);
+
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: AppColors.surface,
+        content: Row(
+          children: [
+            const Icon(Icons.add_photo_alternate_outlined,
+                color: AppColors.textPrimary, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                message ??
+                    "Couldn't read this page. Please add the product image and continue.",
+                style: const TextStyle(color: AppColors.textPrimary),
+              ),
+            ),
+          ],
+        ),
+        duration: const Duration(seconds: 4),
+      ),
+    );
+  }
+
+  /// Single product only. Site-specific APIs win when we have them
+  /// (SHEIN → shein1product.php, noon → noon_product.php); everything else
+  /// goes through the universal server-side extractor, then the in-app
+  /// scraper as a last resort.
   Future<void> _extractSingleProductWithScraper() async {
     final url = _urlController.text.trim();
     if (url.isEmpty) return;
@@ -237,7 +378,11 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
       String serial = '';
       double price = 0.0;
 
-      final isShein = url.contains('shein.com') || url.contains('shein.cn');
+      // Route to the SHEIN-specific API for every SHEIN link variant
+      // (shein.com, shein.cn, shein.top, m.shein.com, share.shein.com,
+      //  api-shein.shein.com, etc.) — same check used for the cart path.
+      final isShein = _isSheinLink(url);
+      final isNoon  = !isShein && _isNoonLink(url);
 
       if (isShein) {
         // Use the dedicated SHEIN single-product API
@@ -245,11 +390,18 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
         if (!mounted) return;
 
         if (result['success'] != true) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(result['message']?.toString() ?? 'Could not extract SHEIN product'),
-              backgroundColor: AppColors.warning,
-            ),
+          // If the server detected this is a cart-share URL (multiple items)
+          // show a cart-specific hint. Otherwise show the generic SHEIN hint.
+          final isCartShare = result['is_cart_share'] == true ||
+              _isSheinCartShareLink(url);
+
+          _showManualEntryHint(
+            message: isCartShare
+                ? "We couldn't read the items in this SHEIN cart share. "
+                    "Open the link in SHEIN and paste individual product links "
+                    "here, or add the items manually."
+                : "SHEIN couldn't read this link. Please add the product "
+                    "image and continue, or paste the full product URL.",
           );
           setState(() => _isFetchingProduct = false);
           return;
@@ -260,24 +412,86 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
         price   = (result['price'] as num?)?.toDouble() ?? 0.0;
         imageUrl = result['image']?.toString();
         if (imageUrl != null && imageUrl.isEmpty) imageUrl = null;
-      } else {
-        // Non-SHEIN: use the web scraper
-        final result = await WebScraperService.fetchProductDetails(url);
-        if (!mounted) return;
-
-        if (result['success'] != true) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(result['message']?.toString() ?? 'Could not extract product details'),
-              backgroundColor: AppColors.warning,
-            ),
+      } else if (isNoon) {
+        // Noon's mobile web often shows category/store URLs like
+        //   https://www.noon.com/uae-en/noon-supermarket/
+        // in the address bar even when the user is looking at a product.
+        // Those URLs don't contain a SKU and can't be resolved. Tell the
+        // user to use the Share button on the product page instead of
+        // copying the address bar.
+        if (!_isNoonProductUrl(url)) {
+          _showManualEntryHint(
+            message: "That noon link doesn't include a product ID. "
+                "On the noon page, tap the Share icon and copy the link from "
+                "there — then paste it here.",
           );
           setState(() => _isFetchingProduct = false);
           return;
         }
 
-        final data = result['data'] as Map<String, dynamic>?;
+        // Use the dedicated noon.com single-product API (RapidAPI noon6).
+        final result = await ApiService.extractNoonProduct(url);
+        if (!mounted) return;
+
+        if (result['success'] != true) {
+          final needsShare = result['needs_share_url'] == true;
+          _showManualEntryHint(
+            message: needsShare
+                ? "That noon link doesn't include a product ID. "
+                    "On the noon page, tap the Share icon and copy the link "
+                    "from there — then paste it here."
+                : "Noon couldn't read this link. Please open the product "
+                    "on noon, tap Share, and paste the link from there.",
+          );
+          setState(() => _isFetchingProduct = false);
+          return;
+        }
+
+        title   = result['name']?.toString() ?? '';
+        serial  = result['good_sn']?.toString() ?? '';
+        price   = (result['price'] as num?)?.toDouble() ?? 0.0;
+        imageUrl = result['image']?.toString();
+        if (imageUrl != null && imageUrl.isEmpty) imageUrl = null;
+
+        // If noon didn't return a usable image, try the images list
+        if ((imageUrl == null || imageUrl.isEmpty) &&
+            result['images'] is List && (result['images'] as List).isNotEmpty) {
+          imageUrl = (result['images'] as List).first.toString();
+        }
+      } else {
+        // Other sites: try the server-side universal extractor first
+        // (handles Zara, H&M, Trendyol, Amazon, Mango, ASOS, AliExpress, etc.),
+        // then fall back to the in-app web scraper.
+        final serverResult = await ApiService.extractGenericProduct(url);
+
+        Map<String, dynamic>? data;
+        if (serverResult['success'] == true) {
+          data = {
+            'title': serverResult['name'],
+            'price': serverResult['price'],
+            'images': serverResult['images'] ?? const <String>[],
+            'good_sn': serverResult['good_sn'],
+            'sku': serverResult['sku'],
+          };
+        } else {
+          // Fall back to the on-device scraper
+          final fallback = await WebScraperService.fetchProductDetails(url);
+          if (!mounted) return;
+
+          if (fallback['success'] == true) {
+            data = fallback['data'] as Map<String, dynamic>?;
+          } else {
+            // Auto-extraction failed for this site. Instead of showing a red
+            // error, guide the user to add the product image and details
+            // manually and keep the form usable.
+            _showManualEntryHint();
+            setState(() => _isFetchingProduct = false);
+            return;
+          }
+        }
+
         if (data == null) {
+          _showManualEntryHint();
           setState(() => _isFetchingProduct = false);
           return;
         }
@@ -292,8 +506,11 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
 
       setState(() {
         _showCartItems = false;
-        _singleItemName = title;
-        _singleSerial = serial;
+        final codeNameParts = <String>[];
+        if (serial.isNotEmpty) codeNameParts.add(serial);
+        if (title.isNotEmpty) codeNameParts.add(title);
+        _singleItemName = codeNameParts.join(' · ');
+        _singleSerial = '';
         _singleQty = 1;
         _singlePrice = price;
         _singleProductImageUrl = imageUrl;
@@ -304,10 +521,15 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
       // Download product image to file for submission
       if (imageUrl != null && imageUrl.isNotEmpty) {
         try {
+          final pageForReferer = isShein
+              ? 'https://www.shein.com/'
+              : isNoon
+                  ? 'https://www.noon.com/'
+                  : WebScraperService.normalizeProductUrl(url);
           final imageResponse = await http.get(
             Uri.parse(imageUrl),
             headers: {
-              'Referer': 'https://www.shein.com/',
+              'Referer': pageForReferer,
               'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
               'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8',
             },
@@ -327,9 +549,10 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
       }
 
       if (mounted) {
+        final loc = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Product details extracted'),
+          SnackBar(
+            content: Text(loc.productDetailsExtracted),
             backgroundColor: AppColors.success,
           ),
         );
@@ -337,12 +560,7 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
     } catch (e) {
       debugPrint('Error fetching product: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Could not extract product details'),
-            backgroundColor: AppColors.warning,
-          ),
-        );
+        _showManualEntryHint();
       }
     }
 
@@ -435,8 +653,9 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
       imageToSubmit = _mainImage;
       qty = _singleQty;
       price = _singlePrice;
-      if (_singleItemName.isNotEmpty || _singleSerial.isNotEmpty) {
-        final itemDesc = '${_singleSerial.isNotEmpty ? "[$_singleSerial] " : ""}$_singleItemName x$qty';
+      // Item code/name goes in the note; color is sent in the API `color` field for the DB column.
+      if (_singleItemName.isNotEmpty) {
+        final itemDesc = '$_singleItemName x$qty';
         orderNote = orderNote.isEmpty ? itemDesc : '$orderNote\n$itemDesc';
       }
     } else {
@@ -491,6 +710,9 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
         qty: qty,
         imageFile: imageToSubmit!,
         price: price > 0 ? price : null,
+        color: isSingleProduct && _singleSerial.trim().isNotEmpty
+            ? _singleSerial.trim()
+            : null,
         note: orderNote.isNotEmpty ? orderNote : null,
         subItems: subItems,
       );
@@ -580,7 +802,7 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    '${_cartItems.length} items',
+                    l10n.orderItemsSectionTitle(_cartItems.length),
                     style: const TextStyle(
                       color: AppColors.primary,
                       fontWeight: FontWeight.w600,
@@ -630,7 +852,7 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
                     Padding(
                       padding: const EdgeInsets.only(left: 4, top: 6),
                       child: Text(
-                        'Paste any product link, then tap Extract. SHEIN links: choose single product or full cart.',
+                        l10n.productLinkHelper,
                         style: TextStyle(
                           fontSize: 11,
                           color: context.textSecondaryColor,
@@ -639,7 +861,7 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    // Single "Extract from link" button
+                    // Single "Extract from link" button (`dataExtraction` is the same feature in ARB for reuse)
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton.icon(
@@ -664,7 +886,9 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
                               )
                             : Icon(Icons.link, size: 20, color: context.textPrimaryColor),
                         label: Text(
-                          _isFetchingProduct ? 'Extracting...' : 'Extract from link',
+                          _isFetchingProduct
+                              ? l10n.extractingFromLink
+                              : l10n.extractFromLink,
                           style: TextStyle(
                             fontWeight: FontWeight.w600,
                             fontSize: 14,
@@ -692,7 +916,7 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
                       _buildSectionTitle(l10n.selectSize),
                       _buildTextField(
                         controller: _sizeTextController,
-                        hint: 'e.g. M, L, XL, One Size...',
+                        hint: l10n.sizeHintExample,
                       ),
                       const SizedBox(height: 20),
                     ],
@@ -752,9 +976,9 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
   Widget _buildCartItemsSection(AppLocalizations l10n) {
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: context.surfaceColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: context.borderColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -845,7 +1069,7 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Product details',
+            l10n.productDetails,
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
@@ -854,15 +1078,15 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
           ),
           const SizedBox(height: 12),
           _buildSmallTextField(
-            hint: 'Serial # (good_sn)',
-            value: _singleSerial,
-            onChanged: (value) => setState(() => _singleSerial = value),
+            hint: l10n.itemCodeOrName,
+            value: _singleItemName,
+            onChanged: (value) => setState(() => _singleItemName = value),
           ),
           const SizedBox(height: 10),
           _buildSmallTextField(
-            hint: 'Item Code/Name',
-            value: _singleItemName,
-            onChanged: (value) => setState(() => _singleItemName = value),
+            hint: l10n.color,
+            value: _singleSerial,
+            onChanged: (value) => setState(() => _singleSerial = value),
           ),
           const SizedBox(height: 12),
           Row(
@@ -971,20 +1195,9 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
               Expanded(
                 child: Column(
                   children: [
-                    // Serial Number (good_sn)
-                    _buildSmallTextField(
-                      hint: 'Serial # (good_sn)',
-                      value: item.serialNumber,
-                      onChanged: (value) {
-                        setState(() {
-                          _cartItems[index] = item.copyWith(serialNumber: value);
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 8),
                     // Item Name
                     _buildSmallTextField(
-                      hint: 'Item Code/Name',
+                      hint: l10n.itemCodeOrName,
                       value: item.itemName,
                       onChanged: (value) {
                         setState(() {
@@ -999,11 +1212,10 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
           ),
           const SizedBox(height: 12),
           
-              // Quantity + Size row (price is stored but hidden from user)
+              // Quantity row
               Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  // Quantity
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -1040,28 +1252,8 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(width: 12),
-                  // Size
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Size', style: TextStyle(fontSize: 11, color: context.textSecondaryColor)),
-                    const SizedBox(height: 4),
-                    _buildSmallTextField(
-                      hint: 'e.g. M, L, One Size',
-                      value: item.size ?? '',
-                      onChanged: (value) {
-                        setState(() {
-                          _cartItems[index] = item.copyWith(size: value);
-                        });
-                      },
-                    ),
-                  ],
-                ),
+                ],
               ),
-            ],
-          ),
         ],
       ),
     );

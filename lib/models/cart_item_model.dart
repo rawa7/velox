@@ -39,7 +39,7 @@ class CartItem {
   factory CartItem.fromJson(Map<String, dynamic> json) {
     return CartItem(
       id: json['id']?.toString(),
-      serialNumber: json['code']?.toString() ?? json['good_sn']?.toString() ?? json['serial']?.toString() ?? '',
+      serialNumber: json['goods_sn']?.toString() ?? json['good_sn']?.toString() ?? json['code']?.toString() ?? json['serial']?.toString() ?? '',
       itemName: json['name']?.toString() ?? json['item_name']?.toString() ?? '',
       quantity: int.tryParse(json['qty']?.toString() ?? '1') ?? 1,
       price: double.tryParse(json['price']?.toString() ?? '0') ?? 0.0,
@@ -53,7 +53,7 @@ class CartItem {
   /// Create from SHEIN extraction API response
   factory CartItem.fromSheinJson(Map<String, dynamic> json) {
     return CartItem(
-      serialNumber: json['code']?.toString() ?? json['good_sn']?.toString() ?? '',
+      serialNumber: json['goods_sn']?.toString() ?? json['good_sn']?.toString() ?? json['code']?.toString() ?? '',
       itemName: json['name']?.toString() ?? '',
       quantity: int.tryParse(json['qty']?.toString() ?? '1') ?? 1,
       price: double.tryParse(json['price']?.toString() ?? '0') ?? 0.0,

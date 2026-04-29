@@ -7,6 +7,7 @@ class ThemeService {
   static Future<ThemeMode> getSavedTheme() async {
     final prefs = await SharedPreferences.getInstance();
     final value = prefs.getString(_key);
+    if (value == null) return ThemeMode.light;
     return value == 'light' ? ThemeMode.light : ThemeMode.dark;
   }
 

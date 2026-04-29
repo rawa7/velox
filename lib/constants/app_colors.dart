@@ -14,17 +14,18 @@ class AppColors {
   static const Color secondaryLight = Color(0xFF7DD5FF);
   static const Color secondaryDark  = Color(0xFF32B4F0);
 
-  // Status
-  static const Color success = Color(0xFF32D74B);
-  static const Color warning = Color(0xFFFFD60A);
+  // Status — success green (deeper / more saturated than mint, reads clearly as green on cream)
+  static const Color success = Color(0xFF0F9D58);
+  /// Alert / emphasis red (replaces low-contrast yellow in legacy UI).
+  static const Color warning = Color(0xFFE53935);
   static const Color error   = Color(0xFFFF453A);
   static const Color info    = Color(0xFF0A84FF);
 
   // Order status
-  static const Color pending    = Color(0xFFFFD60A);
+  static const Color pending    = Color(0xFFE53935);
   static const Color processing = Color(0xFF0A84FF);
   static const Color shipped    = Color(0xFF5AC8FA);
-  static const Color delivered  = Color(0xFF32D74B);
+  static const Color delivered  = Color(0xFF0F9D58);
   static const Color cancelled  = Color(0xFF8E8E93);
 
   // Account badges
@@ -67,6 +68,12 @@ class AppColors {
   static const Color borderLight         = Color(0xFF48484A);
   static const List<Color> darkGradient  = [Color(0xFF1A1A1A), Color(0xFF2C2C2E)];
   static const List<Color> cardGradient  = [Color(0xFF2C2C2E), Color(0xFF3A3A3C)];
+
+  /// Raised dark surface for brand logos: lighter than [surface] (better for dark marks), still clearly dark UI.
+  static const Color brandLogoTileDark = Color(0xFF46464C);
+
+  /// Home website grid tiles in dark mode (requested contrast for logos).
+  static const Color homeWebsiteTileDark = Color(0xFFB7B7B7);
 }
 
 /// Theme-aware colors — use these in build() so the whole app responds to dark/light toggle.
@@ -83,6 +90,14 @@ extension ThemeColors on BuildContext {
   Color get cardColor => Theme.of(this).colorScheme.surface;
   Brightness get brightness => Theme.of(this).brightness;
   bool get isDark => Theme.of(this).brightness == Brightness.dark;
+
+  /// Website/brand logo tiles: in dark mode, slightly elevated gray (not off-white) so logos read but UI stays dark.
+  Color get brandLogoTileBackground =>
+      isDark ? AppColors.brandLogoTileDark : surfaceColor;
+
+  /// Home page website logo tiles only — dark mode uses [AppColors.homeWebsiteTileDark].
+  Color get homeWebsiteTileBackground =>
+      isDark ? AppColors.homeWebsiteTileDark : surfaceColor;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

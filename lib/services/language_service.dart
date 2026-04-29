@@ -17,9 +17,24 @@ class LanguageService {
   
   static List<LocaleInfo> getSupportedLanguages() {
     return [
-      LocaleInfo(locale: const Locale('en'), name: 'English', nativeName: 'English'),
-      LocaleInfo(locale: const Locale('ar'), name: 'Arabic', nativeName: 'العربية'),
-      LocaleInfo(locale: const Locale('fa'), name: 'Kurdish', nativeName: 'کوردی'), // Using 'fa' for Kurdish Sorani
+      LocaleInfo(
+        locale: const Locale('en'),
+        name: 'English',
+        nativeName: 'English',
+        flagAssetPath: 'assets/flag_gb.png',
+      ),
+      LocaleInfo(
+        locale: const Locale('ar'),
+        name: 'Arabic',
+        nativeName: 'العربية',
+        flagAssetPath: 'assets/flag_iq.png',
+      ),
+      LocaleInfo(
+        locale: const Locale('fa'),
+        name: 'Kurdish',
+        nativeName: 'کوردی', // Using 'fa' for Kurdish Sorani
+        flagAssetPath: 'assets/Flag_of_Kurdistan.png',
+      ),
     ];
   }
 }
@@ -28,11 +43,13 @@ class LocaleInfo {
   final Locale locale;
   final String name;
   final String nativeName;
-  
+  final String flagAssetPath;
+
   LocaleInfo({
     required this.locale,
     required this.name,
     required this.nativeName,
+    required this.flagAssetPath,
   });
 }
 

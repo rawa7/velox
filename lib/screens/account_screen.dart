@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../constants/app_colors.dart';
 import '../constants/currency.dart';
 import '../services/storage_service.dart';
@@ -8,20 +10,38 @@ import '../models/user_model.dart';
 import '../models/profile_model.dart';
 import '../generated/app_localizations.dart';
 import '../main.dart';
+import '../utils/color_utils.dart';
+import '../widgets/language_flag_asset.dart';
 import 'login_screen.dart';
 import 'change_password_screen.dart';
 import 'statement_screen.dart';
 import 'notifications_screen.dart';
 import 'edit_profile_screen.dart';
 
+/// Account tab index in [MainNavigation] (5 tabs: Home, Store, New Order, My Orders, Account).
+const int kAccountTabIndexFull = 4;
+/// Account tab index when silver / guest layout (4 tabs, no center New Order).
+const int kAccountTabIndexSilver = 3;
+
 class AccountScreen extends StatefulWidget {
-  const AccountScreen({super.key});
+  const AccountScreen({
+    super.key,
+    this.selectedTabIndex = 0,
+    this.accountTabIndex = kAccountTabIndexFull,
+  });
+
+  /// Current bottom-nav index from [MainNavigation] (must update when tabs change).
+  final int selectedTabIndex;
+  final int accountTabIndex;
 
   @override
   State<AccountScreen> createState() => _AccountScreenState();
 }
 
 class _AccountScreenState extends State<AccountScreen> {
+  /// WhatsApp chat (+964 750 774 6088)
+  static const String _supportWhatsAppE164 = '9647507746088';
+
   User? _user;
   ProfileData? _profile;
   bool _isLoading = true;
@@ -32,15 +52,33 @@ class _AccountScreenState extends State<AccountScreen> {
     _loadUserData();
   }
 
+  @override
+  void didUpdateWidget(AccountScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // IndexedStack keeps this screen alive — reload wallet / available_capacity when user opens Account.
+    if (widget.selectedTabIndex == widget.accountTabIndex &&
+        oldWidget.selectedTabIndex != widget.accountTabIndex) {
+      _loadUserData();
+    }
+  }
+
   Future<void> _loadUserData() async {
     setState(() => _isLoading = true);
     
     try {
       _user = await StorageService.getUser();
       if (_user != null) {
-        final result = await ApiService.getProfile(customerId: _user!.id);
+        final result = await ApiService.getProfile(
+          customerId: _user!.id,
+          mergeIntoUser: _user,
+        );
         if (result['success'] == true) {
           _profile = result['data'] as ProfileData;
+          final updated = result['user'] as User?;
+          if (updated != null) {
+            _user = updated;
+            await StorageService.saveUser(updated);
+          }
         }
       }
     } catch (e) {
@@ -87,6 +125,66 @@ class _AccountScreenState extends State<AccountScreen> {
     }
   }
 
+  Future<void> _deleteAccount() async {
+    final user = await StorageService.getUser();
+    if (!mounted) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: ctx.surfaceColor,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            const Icon(Icons.delete_forever, color: AppColors.error),
+            const SizedBox(width: 10),
+            Text(
+              'Delete Account',
+              style: TextStyle(
+                color: ctx.textPrimaryColor,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          'Are you sure you want to delete your account? This action cannot be undone.',
+          style: TextStyle(color: ctx.textSecondaryColor, height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('No'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text('Yes, Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true || !mounted) return;
+
+    if (user != null) {
+      await ApiService.deactivateAccount(customerId: user.id);
+    }
+    await StorageService.clearUser();
+
+    if (mounted) {
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const LoginScreen()),
+        (route) => false,
+      );
+    }
+  }
+
   Future<void> _changeLanguage() async {
     final languages = LanguageService.getSupportedLanguages();
     final currentLocale = await LanguageService.getSelectedLanguage();
@@ -119,33 +217,17 @@ class _AccountScreenState extends State<AccountScreen> {
             ...languages.map((lang) {
               final isSelected = currentLocale.languageCode == lang.locale.languageCode;
               return ListTile(
-                leading: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: isSelected ? AppColors.primary.withOpacity(0.1) : AppColors.background,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Center(
-                    child: Text(
-                      lang.locale.languageCode.toUpperCase(),
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: isSelected ? AppColors.primary : AppColors.textSecondary,
-                      ),
-                    ),
-                  ),
-                ),
+                leading: LanguageFlagAsset(assetPath: lang.flagAssetPath),
                 title: Text(
                   lang.name,
                   style: TextStyle(
-                    color: AppColors.textPrimary,
+                    color: context.textPrimaryColor,
                     fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                   ),
                 ),
                 subtitle: Text(
                   lang.nativeName,
-                  style: const TextStyle(color: AppColors.textSecondary),
+                  style: TextStyle(color: context.textSecondaryColor),
                 ),
                 trailing: isSelected
                     ? const Icon(Icons.check_circle, color: AppColors.primary)
@@ -222,7 +304,7 @@ class _AccountScreenState extends State<AccountScreen> {
                         ),
                         _buildMenuItem(
                           icon: Icons.notifications_outlined,
-                          title: 'Notifications',
+                          title: l10n.notifications,
                           onTap: () => Navigator.push(
                             context,
                             MaterialPageRoute(builder: (context) => const NotificationsScreen()),
@@ -251,19 +333,24 @@ class _AccountScreenState extends State<AccountScreen> {
                           onTap: _changeLanguage,
                         ),
                         _buildMenuItem(
+                          icon: Icons.chat_rounded,
+                          title: l10n.chatOnWhatsApp,
+                          onTap: _openSupportWhatsApp,
+                          iconColor: const Color(0xFF25D366),
+                        ),
+                        _buildMenuItem(
                           icon: Icons.help_outline,
                           title: l10n.helpAndSupport,
                           onTap: () => _showHelpDialog(l10n),
                         ),
-                        _buildMenuItem(
-                          icon: Icons.info_outline,
-                          title: l10n.contactSupport,
-                          onTap: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(l10n.contactFormComingSoon)),
-                            );
-                          },
-                        ),
+                        if (_user?.usertype == '1')
+                          _buildMenuItem(
+                            icon: Icons.delete_forever_outlined,
+                            title: 'Delete Account',
+                            titleColor: AppColors.error,
+                            iconColor: AppColors.error,
+                            onTap: _deleteAccount,
+                          ),
                       ],
                     ),
                     const SizedBox(height: 20),
@@ -293,35 +380,97 @@ class _AccountScreenState extends State<AccountScreen> {
     );
   }
 
+  void _showCustomerQrDialog(AppLocalizations l10n, String payload) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        final scheme = Theme.of(ctx).colorScheme;
+        // Use [Dialog] instead of [AlertDialog]: [QrImageView] uses LayoutBuilder,
+        // which breaks AlertDialog's IntrinsicWidth measurement.
+        return Dialog(
+          backgroundColor: scheme.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  l10n.myQrCode,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: scheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                QrImageView(
+                  data: payload,
+                  size: 220,
+                  backgroundColor: Colors.white,
+                ),
+                const SizedBox(height: 12),
+                SelectableText(
+                  payload,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: scheme.onSurface,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: Text(l10n.ok),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildProfileHeader(AppLocalizations l10n) {
     final userName = _user?.name ?? '';
-    
+    final qrPayload = _profile?.qrCodePayload;
+    final c1 = parseHexColor(_user?.color1);
+    final c2 = parseHexColor(_user?.color2);
+    final onCard = parseHexColor(_user?.textColor) ?? Colors.white;
+    final List<Color> gradientColors = () {
+      if (c1 != null && c2 != null) return [c1, c2];
+      if (c1 != null) return [c1, c1.withOpacity(0.88)];
+      if (c2 != null) return [c2.withOpacity(0.88), c2];
+      return AppColors.primaryGradient;
+    }();
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: AppColors.primaryGradient,
+        gradient: LinearGradient(
+          colors: gradientColors,
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             width: 70,
             height: 70,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: onCard.withOpacity(0.2),
               borderRadius: BorderRadius.circular(35),
             ),
             child: Center(
               child: Text(
                 userName.isNotEmpty ? userName[0].toUpperCase() : 'U',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
-                  color: Colors.white,
+                  color: onCard,
                 ),
               ),
             ),
@@ -333,10 +482,10 @@ class _AccountScreenState extends State<AccountScreen> {
               children: [
                 Text(
                   userName.isNotEmpty ? userName : l10n.hello,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                    color: onCard,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -344,7 +493,7 @@ class _AccountScreenState extends State<AccountScreen> {
                   _user?.phone ?? '',
                   style: TextStyle(
                     fontSize: 14,
-                    color: Colors.white.withOpacity(0.8),
+                    color: onCard.withOpacity(0.85),
                   ),
                 ),
                 if (_profile?.accountInfo.accountType.isNotEmpty == true) ...[
@@ -352,15 +501,17 @@ class _AccountScreenState extends State<AccountScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
+                      color: onCard.withOpacity(0.22),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      _profile!.accountInfo.accountType,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.white,
+                      _profile!.accountInfo.localizedAccountType(
+                        Localizations.localeOf(context).languageCode,
+                      ),
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: onCard,
                       ),
                     ),
                   ),
@@ -368,6 +519,23 @@ class _AccountScreenState extends State<AccountScreen> {
               ],
             ),
           ),
+          if (qrPayload != null)
+            Material(
+              color: onCard.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+              child: InkWell(
+                onTap: () => _showCustomerQrDialog(l10n, qrPayload),
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.all(10),
+                  child: Icon(
+                    Icons.qr_code_2_rounded,
+                    color: onCard,
+                    size: 26,
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -420,7 +588,7 @@ class _AccountScreenState extends State<AccountScreen> {
           ),
           const SizedBox(height: 16),
           Text(
-            AppCurrency.format(_profile!.accountInfo.currentBalance),
+            AppCurrency.format(_profile!.accountInfo.currentBalance, context),
             style: const TextStyle(
               fontSize: 32,
               fontWeight: FontWeight.bold,
@@ -435,15 +603,15 @@ class _AccountScreenState extends State<AccountScreen> {
               Expanded(
                 child: _buildWalletStat(
                   l10n.debtLimit,
-                  AppCurrency.format(_profile!.accountInfo.debtLimit),
-                  AppColors.warning,
+                  AppCurrency.format(_profile!.accountInfo.debtLimit, context),
+                  AppColors.error,
                 ),
               ),
               Container(width: 1, height: 40, color: context.borderColor),
               Expanded(
                 child: _buildWalletStat(
                   l10n.availableCapacity,
-                  AppCurrency.format(_profile!.accountInfo.availableCapacity),
+                  AppCurrency.format(_profile!.accountInfo.availableCapacity, context),
                   AppColors.success,
                 ),
               ),
@@ -523,7 +691,7 @@ class _AccountScreenState extends State<AccountScreen> {
           size: 22,
         ),
         title: Text(
-          isDark ? 'Dark Mode' : 'Light Mode',
+          isDark ? AppLocalizations.of(context)!.darkMode : AppLocalizations.of(context)!.lightMode,
           style: TextStyle(
             color: Theme.of(context).colorScheme.onSurface,
             fontSize: 15,
@@ -548,6 +716,7 @@ class _AccountScreenState extends State<AccountScreen> {
     required String title,
     required VoidCallback onTap,
     Color? iconColor,
+    Color? titleColor,
   }) {
     return InkWell(
       onTap: onTap,
@@ -574,7 +743,8 @@ class _AccountScreenState extends State<AccountScreen> {
                 title,
                 style: TextStyle(
                   fontSize: 15,
-                  color: context.textPrimaryColor,
+                  color: titleColor ?? context.textPrimaryColor,
+                  fontWeight: titleColor != null ? FontWeight.w600 : FontWeight.normal,
                 ),
               ),
             ),
@@ -588,20 +758,63 @@ class _AccountScreenState extends State<AccountScreen> {
     );
   }
 
+  Future<void> _openSupportWhatsApp() async {
+    final uri = Uri.parse('https://wa.me/$_supportWhatsAppE164');
+    try {
+      final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!launched && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open WhatsApp')),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open WhatsApp')),
+        );
+      }
+    }
+  }
+
   void _showHelpDialog(AppLocalizations l10n) {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: Theme.of(ctx).colorScheme.surface,
-        title: Text(l10n.helpAndSupport, style: TextStyle(color: Theme.of(ctx).colorScheme.onSurface)),
-        content: Text(l10n.helpMessage, style: TextStyle(color: Theme.of(ctx).colorScheme.onSurface.withOpacity(0.8))),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(l10n.ok),
+      builder: (ctx) {
+        final onSurface = Theme.of(ctx).colorScheme.onSurface;
+        return AlertDialog(
+          backgroundColor: Theme.of(ctx).colorScheme.surface,
+          title: Text(l10n.helpAndSupport, style: TextStyle(color: onSurface)),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  l10n.helpMessage,
+                  style: TextStyle(color: onSurface.withOpacity(0.85)),
+                ),
+                const SizedBox(height: 16),
+                FilledButton.icon(
+                  onPressed: () => _openSupportWhatsApp(),
+                  icon: const Icon(Icons.chat_rounded, size: 20),
+                  label: Text(l10n.chatOnWhatsApp),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF25D366),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ],
-      ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(l10n.ok),
+            ),
+          ],
+        );
+      },
     );
   }
 }

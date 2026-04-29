@@ -84,6 +84,9 @@ $approved_unpaid_total = floatval(mysqli_fetch_assoc($approved_unpaid_result)['a
 // Available capacity
 $customer_available_capacity = $customer_balance + $customer_debt_limit - $approved_unpaid_total;
 
+// Per–line note on item_details (out of stock, etc.) — safe if already present
+@mysqli_query($conn, "ALTER TABLE item_details ADD COLUMN IF NOT EXISTS line_note varchar(512) DEFAULT NULL COMMENT 'Staff note e.g. out of stock'");
+
 // Build search condition
 $search_condition = '';
 if (!empty($search)) {
@@ -98,7 +101,8 @@ if ($status_filter !== null) {
 
 // Get all orders
 $orders_query = "SELECT i.*, s.name as status_name, w.name as website_name, f.web_path as image_path,
-                         c.currencysign as currency_symbol, c.currencyname as currency_name
+                         c.currencysign as currency_symbol, c.currencyname as currency_name,
+                         c.currencyconvert as currency_convert
                 FROM items i
                 LEFT JOIN statue s ON i.status = s.id
                 LEFT JOIN website w ON i.websiteid = w.id
@@ -133,11 +137,9 @@ while ($order = mysqli_fetch_assoc($orders_result)) {
     if (isset($order['totalprice'])) {
         $order['totalprice'] = round(floatval($order['totalprice']), 2);
     }
-    // Add total_dinar (Iraqi Dinar) - use totalprice when total_dinar is missing or zero
-    if (isset($order['total_dinar']) && (string)$order['total_dinar'] !== '' && floatval($order['total_dinar']) > 0) {
+    // Add total_dinar (Iraqi Dinar) - rounded to whole number
+    if (isset($order['total_dinar'])) {
         $order['total_dinar'] = round(floatval($order['total_dinar']), 0);
-    } else {
-        $order['total_dinar'] = isset($order['totalprice']) ? round(floatval($order['totalprice']), 0) : 0;
     }
     if (isset($order['cargo'])) {
         $order['cargo'] = round(floatval($order['cargo']), 2);
@@ -151,10 +153,41 @@ while ($order = mysqli_fetch_assoc($orders_result)) {
     if (isset($order['commission'])) {
         $order['commission'] = round(floatval($order['commission']), 2);
     }
-    
-    // Ensure note field is included (even if null or empty)
-    if (!isset($order['note'])) {
+
+    // If order has sub-items, fetch them from item_details and clear the note
+    if (!empty($order['has_sub_items']) && $order['has_sub_items'] == '1') {
+        $item_id = intval($order['id']);
+        $sub_query = "SELECT item_code AS title, serial, image, qty, price, subtotal, size, status, line_note
+                      FROM item_details
+                      WHERE item_id = $item_id
+                      ORDER BY id ASC";
+        $sub_result = mysqli_query($conn, $sub_query);
+        $sub_items = [];
+        if ($sub_result) {
+            while ($sub = mysqli_fetch_assoc($sub_result)) {
+                $sub_items[] = [
+                    'title'     => $sub['title'],
+                    'serial'    => $sub['serial'],
+                    'image'     => $sub['image'],
+                    'qty'       => intval($sub['qty']),
+                    'price'     => round(floatval($sub['price']), 2),
+                    'subtotal'  => round(floatval($sub['subtotal']), 2),
+                    'size'      => $sub['size'],
+                    'status'    => $sub['status'],
+                    'line_note' => isset($sub['line_note']) ? $sub['line_note'] : null,
+                ];
+            }
+        }
+        $order['sub_items'] = $sub_items;
+        $order['total_qty'] = array_sum(array_column($sub_items, 'qty'));
         $order['note'] = null;
+    } else {
+        $order['sub_items'] = [];
+        $order['total_qty'] = intval($order['qty'] ?? 0);
+        // Ensure note field is included (even if null or empty)
+        if (!isset($order['note'])) {
+            $order['note'] = null;
+        }
     }
     
     $orders[] = $order;

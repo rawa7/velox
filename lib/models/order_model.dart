@@ -1,3 +1,43 @@
+class SubItem {
+  final String title;
+  final String serial;
+  final String image;
+  final int qty;
+  final double price;
+  final double subtotal;
+  final String size;
+  final String status;
+  /// Staff/system note (e.g. out of stock); shown beside qty when set.
+  final String? lineNote;
+
+  SubItem({
+    required this.title,
+    required this.serial,
+    required this.image,
+    required this.qty,
+    required this.price,
+    required this.subtotal,
+    required this.size,
+    required this.status,
+    this.lineNote,
+  });
+
+  factory SubItem.fromJson(Map<String, dynamic> json) {
+    final rawNote = json['line_note']?.toString();
+    return SubItem(
+      title: json['title']?.toString() ?? '',
+      serial: json['serial']?.toString() ?? '',
+      image: json['image']?.toString() ?? '',
+      qty: int.tryParse(json['qty']?.toString() ?? '1') ?? 1,
+      price: double.tryParse(json['price']?.toString() ?? '0') ?? 0.0,
+      subtotal: double.tryParse(json['subtotal']?.toString() ?? '0') ?? 0.0,
+      size: json['size']?.toString() ?? '',
+      status: json['status']?.toString() ?? '',
+      lineNote: rawNote != null && rawNote.trim().isNotEmpty ? rawNote.trim() : null,
+    );
+  }
+}
+
 class Order {
   final String id;
   final String serial;
@@ -31,9 +71,15 @@ class Order {
   final String imagePath;
   final String? currencySymbol;
   final String? currencyName;
+  /// From `currency.currencyconvert`: units of this currency per 1 USD (e.g. TRY 42.6).
+  final String currencyConvert;
   final String imageUrl;
   /// Order total in Iraqi Dinar (for display)
   final String totalDinar;
+  /// Exchange rate used to convert to dinar (e.g. "1400.0000")
+  final String rate;
+  final List<SubItem> subItems;
+  final bool hasSubItems;
 
   Order({
     required this.id,
@@ -68,9 +114,21 @@ class Order {
     required this.imagePath,
     this.currencySymbol,
     this.currencyName,
+    this.currencyConvert = '1',
     required this.imageUrl,
     this.totalDinar = '0',
+    this.rate = '1',
+    this.subItems = const [],
+    this.hasSubItems = false,
   });
+
+  /// Sum of qty across all sub-items; falls back to the order-level qty field.
+  int get totalQty {
+    if (subItems.isNotEmpty) {
+      return subItems.fold(0, (sum, item) => sum + item.qty);
+    }
+    return int.tryParse(qty) ?? 1;
+  }
 
   /// Total to show in dinar: uses totalDinar when non-zero, otherwise totalPrice.
   double get displayTotal {
@@ -113,8 +171,14 @@ class Order {
       imagePath: json['image_path']?.toString() ?? '',
       currencySymbol: json['currency_symbol']?.toString(),
       currencyName: json['currency_name']?.toString(),
+      currencyConvert: json['currency_convert']?.toString() ?? '1',
       imageUrl: json['image_url']?.toString() ?? '',
-      totalDinar: json['total_dinar']?.toString() ?? json['converttodinar']?.toString() ?? '0',
+      totalDinar: json['total_dinar']?.toString() ?? '0',
+      rate: json['rate']?.toString() ?? '1',
+      hasSubItems: json['has_sub_items']?.toString() == '1',
+      subItems: json['sub_items'] != null
+          ? (json['sub_items'] as List).map((e) => SubItem.fromJson(e)).toList()
+          : [],
     );
   }
 }

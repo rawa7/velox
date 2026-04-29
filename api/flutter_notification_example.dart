@@ -87,7 +87,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class NotificationService {
-  static const String baseUrl = 'https://veloxshoppingiq.com/api/notifications.php';
+  static const String baseUrl = 'http://veloxshoppingiq.com/api/notifications.php';
 
   // Fetch all notifications
   static Future<Map<String, dynamic>> fetchNotifications({

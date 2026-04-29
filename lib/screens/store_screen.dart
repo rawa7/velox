@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import '../constants/app_colors.dart';
 import '../constants/currency.dart';
@@ -141,6 +143,169 @@ class _StoreScreenState extends State<StoreScreen> {
     );
   }
 
+  Future<void> _quickOrder(ShopItem item) async {
+    final l10n = AppLocalizations.of(context)!;
+
+    if (_user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.loginRequired)),
+      );
+      return;
+    }
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: ctx.surfaceColor,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            const Icon(Icons.shopping_cart_outlined, color: AppColors.primary),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                l10n.addToOrder,
+                style: TextStyle(
+                  color: ctx.textPrimaryColor,
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              item.itemName,
+              style: TextStyle(
+                color: ctx.textPrimaryColor,
+                fontWeight: FontWeight.w600,
+                fontSize: 15,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              AppCurrency.format(item.price, ctx),
+              style: const TextStyle(
+                color: AppColors.primary,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Qty: 1',
+              style: TextStyle(color: ctx.textSecondaryColor, fontSize: 13),
+            ),
+          ],
+        ),
+        actions: [
+          OutlinedButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.error,
+              side: const BorderSide(color: AppColors.error),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: Text(l10n.no),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: Text(l10n.yes),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true || !mounted) return;
+
+    // Show loading
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Row(
+          children: [
+            SizedBox(
+              width: 18, height: 18,
+              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+            ),
+            SizedBox(width: 12),
+            Text('Placing order...'),
+          ],
+        ),
+        duration: Duration(seconds: 10),
+        backgroundColor: AppColors.primary,
+      ),
+    );
+
+    try {
+      // Download image
+      File? imageFile;
+      try {
+        final resp = await http.get(Uri.parse(item.imagePath));
+        if (resp.statusCode == 200 && resp.bodyBytes.isNotEmpty) {
+          final dir = await Directory.systemTemp.createTemp('velox_store');
+          final f = File('${dir.path}/item_${DateTime.now().millisecondsSinceEpoch}.jpg');
+          await f.writeAsBytes(resp.bodyBytes);
+          imageFile = f;
+        }
+      } catch (_) {}
+
+      if (imageFile == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(AppLocalizations.of(context)!.errorSubmittingOrder),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
+        return;
+      }
+
+      final response = await ApiService.addOrder(
+        customerId: _user!.id,
+        link: item.imagePath,
+        size: 'N/A',
+        qty: 1,
+        imageFile: imageFile,
+        price: item.price,
+        note: '${item.itemName} x1 @ ${AppCurrency.format(item.price, context)}',
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            response['success'] == true
+                ? AppLocalizations.of(context)!.orderSubmitted
+                : response['message'] ?? AppLocalizations.of(context)!.errorSubmittingOrder,
+          ),
+          backgroundColor: response['success'] == true ? AppColors.success : AppColors.error,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppLocalizations.of(context)!.errorSubmittingOrder),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -191,7 +356,7 @@ class _StoreScreenState extends State<StoreScreen> {
                 ),
               ),
               // Shop Banners
-              if (_shopBanners.isNotEmpty && _user != null && _user!.isBronzeAccount != true)
+              if (_shopBanners.isNotEmpty && _user != null && !_user!.isBronzeAccount && !_user!.isSilverAccount)
                 SliverToBoxAdapter(
                   child: Container(
                     height: 140,
@@ -284,10 +449,10 @@ class _StoreScreenState extends State<StoreScreen> {
                   ),
                 ),
               // Brand Filters
-              if (_brands.isNotEmpty && _user != null && _user!.isBronzeAccount != true)
+              if (_brands.isNotEmpty && _user != null && !_user!.isBronzeAccount && !_user!.isSilverAccount)
                 SliverToBoxAdapter(
                   child: Container(
-                    height: 100,
+                    height: 118,
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     child: ListView(
                       scrollDirection: Axis.horizontal,
@@ -309,7 +474,7 @@ class _StoreScreenState extends State<StoreScreen> {
                   ),
                 ),
               // Category Filters
-              if (_categories.isNotEmpty && _user != null && _user!.isBronzeAccount != true)
+              if (_categories.isNotEmpty && _user != null && !_user!.isBronzeAccount && !_user!.isSilverAccount)
                 SliverToBoxAdapter(
                   child: SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
@@ -418,17 +583,19 @@ class _StoreScreenState extends State<StoreScreen> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.only(right: 12),
+        margin: const EdgeInsets.only(right: 14),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              width: 48,
-              height: 48,
+              width: 60,
+              height: 60,
               decoration: BoxDecoration(
-                color: isSelected ? AppColors.primary.withOpacity(0.2) : context.surfaceColor,
-                borderRadius: BorderRadius.circular(12),
+                color: isSelected
+                    ? AppColors.primary.withOpacity(0.2)
+                    : context.brandLogoTileBackground,
+                borderRadius: BorderRadius.circular(14),
                 border: Border.all(
                   color: isSelected ? AppColors.primary : context.borderColor,
                   width: isSelected ? 2 : 1,
@@ -436,28 +603,30 @@ class _StoreScreenState extends State<StoreScreen> {
               ),
               child: imageUrl != null && imageUrl.isNotEmpty
                   ? ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                       child: Image.network(
                         imageUrl,
                         fit: BoxFit.cover,
                         errorBuilder: (_, __, ___) => Icon(
                           Icons.shopping_bag,
+                          size: 28,
                           color: isSelected ? AppColors.primary : context.textSecondaryColor,
                         ),
                       ),
                     )
                   : Icon(
                       Icons.apps,
+                      size: 28,
                       color: isSelected ? AppColors.primary : context.textSecondaryColor,
                     ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 6),
             SizedBox(
-              width: 52,
+              width: 64,
               child: Text(
                 label,
                 style: TextStyle(
-                  fontSize: 10,
+                  fontSize: 11,
                   color: isSelected ? AppColors.primary : context.textSecondaryColor,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                 ),
@@ -557,23 +726,26 @@ class _StoreScreenState extends State<StoreScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          AppCurrency.format(item.price),
+                          AppCurrency.format(item.price, context),
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
                             color: AppColors.primary,
                           ),
                         ),
-                        Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(
-                            Icons.add_shopping_cart,
-                            color: AppColors.primary,
-                            size: 18,
+                        GestureDetector(
+                          onTap: () => _quickOrder(item),
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(
+                              Icons.add_shopping_cart,
+                              color: AppColors.primary,
+                              size: 18,
+                            ),
                           ),
                         ),
                       ],

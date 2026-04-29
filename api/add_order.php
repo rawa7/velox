@@ -48,6 +48,13 @@ function compressAndResizeImage($source_path, $destination_path, $max_width = 80
         case 'image/gif':
             $source_image = imagecreatefromgif($source_path);
             break;
+        case 'image/webp':
+            // Common for product images from modern shops (Trendyol, Shein CDN, etc.)
+            if (!function_exists('imagecreatefromwebp')) {
+                return false;
+            }
+            $source_image = imagecreatefromwebp($source_path);
+            break;
         default:
             return false;
     }
@@ -68,7 +75,7 @@ function compressAndResizeImage($source_path, $destination_path, $max_width = 80
     
     $new_image = imagecreatetruecolor($new_width, $new_height);
     
-    if ($mime_type == 'image/png' || $mime_type == 'image/gif') {
+    if ($mime_type == 'image/png' || $mime_type == 'image/gif' || $mime_type == 'image/webp') {
         imagealphablending($new_image, false);
         imagesavealpha($new_image, true);
         $transparent = imagecolorallocatealpha($new_image, 255, 255, 255, 127);
@@ -88,6 +95,10 @@ function compressAndResizeImage($source_path, $destination_path, $max_width = 80
             break;
         case 'image/gif':
             $success = imagegif($new_image, $destination_path);
+            break;
+        case 'image/webp':
+            // Re-encode as JPEG so stored files match typical .jpg names from the app
+            $success = imagejpeg($new_image, $destination_path, $quality);
             break;
     }
     
@@ -172,7 +183,7 @@ if (!file_exists($upload_dir)) {
 }
 
 $file_extension = strtolower(pathinfo($_FILES['product_image']['name'], PATHINFO_EXTENSION));
-$allowed_extensions = array('jpg', 'jpeg', 'png', 'gif');
+$allowed_extensions = array('jpg', 'jpeg', 'png', 'gif', 'webp');
 $original_filename = $_FILES['product_image']['name'];
 $file_size = $_FILES['product_image']['size'];
 
@@ -181,7 +192,7 @@ if (!in_array($file_extension, $allowed_extensions)) {
     http_response_code(400);
     echo json_encode([
         'success' => false,
-        'message' => 'Invalid image format. Please upload JPG, JPEG, PNG, or GIF files only.'
+        'message' => 'Invalid image format. Please upload JPG, JPEG, PNG, GIF, or WebP files only.'
     ]);
     exit();
 }
@@ -216,10 +227,10 @@ if ($price > 0) {
     $insert_values .= ", $price";
 }
 
-// Add totalprice and total_dinar if calculated (app displays total_dinar)
+// Add totalprice if calculated
 if ($totalprice > 0) {
-    $insert_fields .= ", totalprice, total_dinar";
-    $insert_values .= ", $totalprice, " . round($totalprice, 0);
+    $insert_fields .= ", totalprice";
+    $insert_values .= ", $totalprice";
 }
 
 // Add currency_id if provided
@@ -340,6 +351,7 @@ if (!query($update_image_query)) {
 
 // Ensure item_details has a size column (safe to run repeatedly with IF NOT EXISTS)
 query("ALTER TABLE item_details ADD COLUMN IF NOT EXISTS size varchar(100) DEFAULT NULL COMMENT 'Item size (e.g. M, L, One Size)'");
+query("ALTER TABLE item_details ADD COLUMN IF NOT EXISTS line_note varchar(512) DEFAULT NULL COMMENT 'Staff note e.g. out of stock'");
 
 // Insert sub-items into item_details (SHEIN cart items)
 if ($has_sub_items && count($sub_items) > 0) {
@@ -350,9 +362,16 @@ if ($has_sub_items && count($sub_items) > 0) {
         $qty_sub    = isset($sub['qty'])         ? intval($sub['qty'])                                        : 1;
         $price_sub  = isset($sub['price'])       ? floatval($sub['price'])                                    : 0.00;
         $size_sub   = isset($sub['size'])        ? mysqli_real_escape_string($conn, trim($sub['size']))       : '';
+        $line_raw   = isset($sub['line_note'])   ? trim((string)$sub['line_note'])                            : '';
+        if ($qty_sub === 0 && $line_raw === '') {
+            $line_raw = 'This item is out of stock.';
+        }
+        $line_sql = $line_raw !== ''
+            ? "'" . mysqli_real_escape_string($conn, $line_raw) . "'"
+            : 'NULL';
 
-        $sub_insert = "INSERT INTO item_details (item_id, item_code, serial, image, qty, price, size)
-                       VALUES ($item_id, '$item_code', '$serial_sub', '$image_sub', $qty_sub, $price_sub, '$size_sub')";
+        $sub_insert = "INSERT INTO item_details (item_id, item_code, serial, image, qty, price, size, line_note)
+                       VALUES ($item_id, '$item_code', '$serial_sub', '$image_sub', $qty_sub, $price_sub, '$size_sub', $line_sql)";
         query($sub_insert);
     }
 }

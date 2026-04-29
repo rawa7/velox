@@ -4,11 +4,41 @@ import 'package:html/parser.dart' as html_parser;
 import 'package:html/dom.dart';
 
 class WebScraperService {
+  /// Normalizes pasted input into a full HTTPS URL for scraping.
+  /// Handles path-only Trendyol product slugs (e.g. `name-p-898899085`).
+  static String normalizeProductUrl(String raw) {
+    var s = raw.trim();
+    if (s.isEmpty) return s;
+
+    if (s.startsWith('http://') || s.startsWith('https://')) {
+      return s;
+    }
+
+    // Trendyol product slug: contains "-p-" + numeric id, single path segment
+    if (RegExp(r'-p-\d+').hasMatch(s) &&
+        !s.contains(' ') &&
+        !s.contains('/') &&
+        s.length > 8) {
+      return 'https://www.trendyol.com/$s';
+    }
+
+    if (s.startsWith('//')) {
+      return 'https:$s';
+    }
+
+    // Path starting with / on known hosts (paste without domain)
+    if (s.startsWith('/') && RegExp(r'-p-\d+').hasMatch(s)) {
+      return 'https://www.trendyol.com$s';
+    }
+
+    return 'https://$s';
+  }
+
   static Future<Map<String, dynamic>> fetchProductDetails(String url) async {
     try {
-      // Validate URL
-      if (!url.startsWith('http://') && !url.startsWith('https://')) {
-        url = 'https://$url';
+      url = normalizeProductUrl(url);
+      if (url.isEmpty) {
+        return {'success': false, 'message': 'Please enter a product link.'};
       }
 
       // Convert mobile URLs to desktop for better scraping
@@ -17,13 +47,15 @@ class WebScraperService {
       final uri = Uri.parse(url);
       
       // Make HTTP request with better headers
+      // Do not request Brotli: package:http does not decode "br", and using
+      // response.body would UTF-8-decode compressed bytes → FormatException.
       final response = await http.get(
         uri,
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
           'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
           'Accept-Language': 'en-US,en;q=0.9',
-          'Accept-Encoding': 'gzip, deflate, br',
+          'Accept-Encoding': 'gzip, deflate',
           'Cache-Control': 'no-cache',
           'Pragma': 'no-cache',
         },
@@ -112,7 +144,8 @@ class WebScraperService {
                           _getMetaContent(document, 'twitter:description');
 
     // Extract images from Open Graph
-    String? ogImage = _getMetaContent(document, 'og:image') ?? 
+    String? ogImage = _getMetaContent(document, 'og:image') ??
+                      _getMetaContent(document, 'og:image:secure_url') ??
                       _getMetaContent(document, 'twitter:image');
     if (ogImage != null) {
       data['images'].add(_makeAbsoluteUrl(ogImage, baseUrl));
@@ -125,22 +158,52 @@ class WebScraperService {
     data['currency'] = _getMetaContent(document, 'og:price:currency') ?? 
                        _getMetaContent(document, 'product:price:currency');
 
-    // Try to extract from JSON-LD schema
+    // Try to extract from JSON-LD schema (most reliable across major retailers)
     final jsonLdData = _extractJsonLdData(document);
     if (jsonLdData != null) {
       data['title'] = data['title'] ?? jsonLdData['name'];
       data['description'] = data['description'] ?? jsonLdData['description'];
-      if (jsonLdData['offers'] != null) {
-        data['price'] = data['price'] ?? jsonLdData['offers']['price'];
-        data['currency'] = data['currency'] ?? jsonLdData['offers']['priceCurrency'];
+      data['sku'] = data['sku'] ??
+          jsonLdData['sku'] ??
+          jsonLdData['mpn'] ??
+          jsonLdData['productID'];
+      data['good_sn'] = data['good_sn'] ?? data['sku'];
+      data['color'] = data['color'] ?? jsonLdData['color'];
+
+      final offers = jsonLdData['offers'];
+      void readOffer(Map offer) {
+        data['price'] = data['price'] ??
+            offer['price'] ??
+            offer['lowPrice'] ??
+            offer['highPrice'];
+        data['currency'] = data['currency'] ?? offer['priceCurrency'];
+        final ps = offer['priceSpecification'];
+        if (data['price'] == null && ps is Map) {
+          data['price'] = ps['price'];
+          data['currency'] = data['currency'] ?? ps['priceCurrency'];
+        }
       }
-      if (jsonLdData['image'] != null) {
-        if (jsonLdData['image'] is List) {
-          for (var img in jsonLdData['image']) {
-            data['images'].add(_makeAbsoluteUrl(img.toString(), baseUrl));
+      if (offers is Map) {
+        readOffer(offers);
+      } else if (offers is List) {
+        for (final o in offers) {
+          if (o is Map) {
+            readOffer(o);
+            if (data['price'] != null) break;
           }
-        } else {
-          data['images'].add(_makeAbsoluteUrl(jsonLdData['image'].toString(), baseUrl));
+        }
+      }
+
+      final img = jsonLdData['image'];
+      if (img is String && img.isNotEmpty) {
+        data['images'].add(_makeAbsoluteUrl(img, baseUrl));
+      } else if (img is List) {
+        for (var i in img) {
+          if (i is String && i.isNotEmpty) {
+            data['images'].add(_makeAbsoluteUrl(i, baseUrl));
+          } else if (i is Map && i['url'] is String) {
+            data['images'].add(_makeAbsoluteUrl(i['url'], baseUrl));
+          }
         }
       }
     }
@@ -150,6 +213,16 @@ class WebScraperService {
       _extractSheinData(document, baseUrl, data);
     } else if (siteType == 'zara') {
       _extractZaraData(document, baseUrl, data);
+    } else if (siteType == 'trendyol') {
+      _extractTrendyolData(document, baseUrl, data);
+    } else if (siteType == 'mango') {
+      _extractMangoData(document, baseUrl, data);
+    } else if (siteType == 'noon') {
+      _extractNoonData(document, baseUrl, data);
+    } else if (siteType == 'hm') {
+      _extractHmData(document, baseUrl, data);
+    } else if (siteType == 'aliexpress') {
+      _extractAliExpressData(document, baseUrl, data);
     }
 
     // Fallback: Try common product image selectors
@@ -182,8 +255,13 @@ class WebScraperService {
     if (lowerUrl.contains('shein.com')) return 'shein';
     if (lowerUrl.contains('zara.com')) return 'zara';
     if (lowerUrl.contains('trendyol.com')) return 'trendyol';
+    if (lowerUrl.contains('mango.com')) return 'mango';
     if (lowerUrl.contains('amazon.')) return 'amazon';
     if (lowerUrl.contains('hm.com')) return 'hm';
+    if (lowerUrl.contains('noon.')) return 'noon';
+    if (lowerUrl.contains('namshi.')) return 'namshi';
+    if (lowerUrl.contains('asos.')) return 'asos';
+    if (lowerUrl.contains('aliexpress')) return 'aliexpress';
     return 'generic';
   }
 
@@ -245,40 +323,188 @@ class WebScraperService {
     }
   }
 
-  static void _extractZaraData(Document document, String baseUrl, Map<String, dynamic> data) {
-    // Zara uses script tags with product data
+  static void _extractTrendyolData(Document document, String baseUrl, Map<String, dynamic> data) {
     final scripts = document.querySelectorAll('script');
     for (var script in scripts) {
       final text = script.text;
-      
-      // Look for product data
-      if (text.contains('window.zara') || text.contains('productData')) {
-        // Extract price
-        final priceMatch = RegExp(r'"price"[:\s]*([0-9]+)').firstMatch(text);
-        if (priceMatch != null && data['price'] == null) {
-          final price = priceMatch.group(1);
-          if (price != null) {
-            data['price'] = (int.parse(price) / 100).toString(); // Zara stores in cents
-          }
+      if (!text.contains('dsmcdn.com') && !text.contains('trendyol')) continue;
+
+      final imageMatches = RegExp(
+        r'https://cdn\.dsmcdn\.com/[^"\s<>]+\.(?:jpg|jpeg|png|webp)',
+        caseSensitive: false,
+      ).allMatches(text);
+      for (var m in imageMatches) {
+        final img = m.group(0);
+        if (img == null) continue;
+        final clean = img.split('?').first;
+        if (!data['images'].contains(clean)) {
+          data['images'].add(clean);
         }
-        
-        // Extract images
-        final imageMatches = RegExp(r'"url"[:\s]*"(https://[^"]*images[^"]*\.jpg[^"]*)"').allMatches(text);
-        for (var match in imageMatches) {
-          final img = match.group(1);
-          if (img != null && !data['images'].contains(img)) {
-            data['images'].add(img);
+      }
+
+      final idMatch = RegExp(r'"contentId"\s*:\s*(\d+)').firstMatch(text);
+      if (idMatch != null && data['good_sn'] == null) {
+        data['good_sn'] = idMatch.group(1);
+        data['sku'] = data['good_sn'];
+      }
+    }
+  }
+
+  static void _extractMangoData(Document document, String baseUrl, Map<String, dynamic> data) {
+    final scripts = document.querySelectorAll('script');
+    for (var script in scripts) {
+      final text = script.text;
+      if (!text.toLowerCase().contains('mango')) continue;
+      final imageMatches = RegExp(
+        r'https://[\w.-]*mango\.com/[^"\s<>]+\.(?:jpg|jpeg|png|webp)',
+        caseSensitive: false,
+      ).allMatches(text);
+      for (var m in imageMatches) {
+        final img = m.group(0);
+        if (img == null) continue;
+        final clean = img.split('?').first;
+        if (!data['images'].contains(clean)) {
+          data['images'].add(clean);
+        }
+      }
+    }
+  }
+
+  static void _extractZaraData(Document document, String baseUrl, Map<String, dynamic> data) {
+    // Zara product pages embed rich JSON in <script> blocks. The page also
+    // serves OpenGraph meta tags which our generic extractor already reads.
+    final scripts = document.querySelectorAll('script');
+    for (var script in scripts) {
+      final text = script.text;
+      if (text.isEmpty) continue;
+
+      // Images live on static.zara.net/photos/...
+      final imageMatches = RegExp(
+        r'https?:\\?/\\?/static\.zara\.net/(?:photos|assets)/[^"\s<>]+?\.(?:jpg|jpeg|png|webp)',
+        caseSensitive: false,
+      ).allMatches(text);
+      for (var match in imageMatches) {
+        var img = match.group(0);
+        if (img == null) continue;
+        img = img.replaceAll(r'\/', '/');
+        // Zara URLs may contain {width} template placeholders
+        img = img.replaceAll(RegExp(r'\{width\}', caseSensitive: false), '1024');
+        if (!data['images'].contains(img)) {
+          data['images'].add(img);
+        }
+      }
+
+      // Extract SKU/reference
+      if (data['good_sn'] == null) {
+        final refMatch = RegExp(r'"reference"\s*:\s*"([A-Z0-9/\-]+)"', caseSensitive: false).firstMatch(text);
+        if (refMatch != null) {
+          data['good_sn'] = refMatch.group(1);
+          data['sku'] = data['sku'] ?? refMatch.group(1);
+        }
+      }
+
+      // Price: Zara stores amounts in minor units (value * 100)
+      if (data['price'] == null) {
+        final priceMatch = RegExp(r'"price"\s*:\s*(\d{2,9})').firstMatch(text);
+        if (priceMatch != null) {
+          final raw = int.tryParse(priceMatch.group(1) ?? '');
+          if (raw != null && raw > 0) {
+            data['price'] = (raw / 100).toString();
           }
         }
       }
     }
-    
-    // Try picture elements
-    final pictures = document.querySelectorAll('picture img, [class*="image"] img');
+
+    // Fallback: id derived from URL (/.../-p{digits}.html)
+    if (data['good_sn'] == null) {
+      final m = RegExp(r'-p(\d{6,})\.html', caseSensitive: false).firstMatch(baseUrl);
+      if (m != null) {
+        data['good_sn'] = m.group(1);
+        data['sku'] = data['sku'] ?? m.group(1);
+      }
+    }
+
+    // <picture>/<img> fallbacks
+    final pictures = document.querySelectorAll('picture img, picture source');
     for (var img in pictures) {
-      final src = img.attributes['src'] ?? img.attributes['data-src'];
-      if (src != null && src.contains('images') && !data['images'].contains(src)) {
+      final src = img.attributes['src'] ??
+          img.attributes['data-src'] ??
+          img.attributes['srcset']?.split(',').first.trim().split(' ').first;
+      if (src != null && src.contains('static.zara.net') && !data['images'].contains(src)) {
         data['images'].add(_makeAbsoluteUrl(src, baseUrl));
+      }
+    }
+  }
+
+  static void _extractNoonData(Document document, String baseUrl, Map<String, dynamic> data) {
+    final scripts = document.querySelectorAll('script');
+    for (var script in scripts) {
+      final text = script.text;
+      if (text.isEmpty) continue;
+
+      // Noon exposes product data in __NUXT__ state
+      final imgListMatch = RegExp(r'"image_keys"\s*:\s*\[(.*?)\]', dotAll: true).firstMatch(text);
+      if (imgListMatch != null) {
+        final inner = imgListMatch.group(1) ?? '';
+        final keys = RegExp(r'"([^"]+)"').allMatches(inner);
+        for (var m in keys) {
+          final key = m.group(1);
+          if (key == null || key.isEmpty) continue;
+          final img = 'https://f.nooncdn.com/p/$key.jpg';
+          if (!data['images'].contains(img)) data['images'].add(img);
+        }
+      }
+
+      if (data['good_sn'] == null) {
+        final codeMatch = RegExp(r'"product_code"\s*:\s*"([^"]+)"').firstMatch(text);
+        if (codeMatch != null) {
+          data['good_sn'] = codeMatch.group(1);
+          data['sku'] = codeMatch.group(1);
+        }
+      }
+
+      if (data['price'] == null) {
+        final priceMatch = RegExp(r'"sale_price"\s*:\s*([0-9.]+)').firstMatch(text);
+        if (priceMatch != null) {
+          data['price'] = priceMatch.group(1);
+        }
+      }
+    }
+  }
+
+  static void _extractHmData(Document document, String baseUrl, Map<String, dynamic> data) {
+    final scripts = document.querySelectorAll('script');
+    for (var script in scripts) {
+      final text = script.text;
+      if (text.isEmpty) continue;
+      final imageMatches = RegExp(
+        r'https?:\\?/\\?/(?:lp2|image)\.hm\.com/[^"\s<>]+\.(?:jpg|jpeg|png|webp)',
+        caseSensitive: false,
+      ).allMatches(text);
+      for (var m in imageMatches) {
+        var img = m.group(0);
+        if (img == null) continue;
+        img = img.replaceAll(r'\/', '/');
+        if (!data['images'].contains(img)) data['images'].add(img);
+      }
+    }
+  }
+
+  static void _extractAliExpressData(Document document, String baseUrl, Map<String, dynamic> data) {
+    final scripts = document.querySelectorAll('script');
+    for (var script in scripts) {
+      final text = script.text;
+      if (!text.contains('runParams') && !text.contains('imagePathList')) continue;
+      final listMatch = RegExp(r'"imagePathList"\s*:\s*\[(.*?)\]', dotAll: true).firstMatch(text);
+      if (listMatch != null) {
+        final inner = listMatch.group(1) ?? '';
+        final urls = RegExp(r'"(https?:\\?/\\?/[^"]+)"').allMatches(inner);
+        for (var m in urls) {
+          var url = m.group(1);
+          if (url == null) continue;
+          url = url.replaceAll(r'\/', '/');
+          if (!data['images'].contains(url)) data['images'].add(url);
+        }
       }
     }
   }
@@ -300,37 +526,57 @@ class WebScraperService {
   }
 
   static Map<String, dynamic>? _extractJsonLdData(Document document) {
-    try {
-      final scripts = document.querySelectorAll('script[type="application/ld+json"]');
-      for (var script in scripts) {
-        final jsonText = script.text;
-        if (jsonText.isEmpty) continue;
-        
-        final jsonData = jsonDecode(jsonText);
-        
-        // Handle array of LD+JSON objects
-        if (jsonData is List) {
-          for (var item in jsonData) {
-            if (item is Map && item['@type'] == 'Product') {
-              return Map<String, dynamic>.from(item);
-            }
-          }
-        } else if (jsonData is Map) {
-          if (jsonData['@type'] == 'Product') {
-            return Map<String, dynamic>.from(jsonData);
-          }
-          // Sometimes it's nested
-          if (jsonData['@graph'] != null) {
-            for (var item in jsonData['@graph']) {
-              if (item is Map && item['@type'] == 'Product') {
-                return Map<String, dynamic>.from(item);
-              }
+    Map<String, dynamic>? walk(dynamic node) {
+      if (node is Map) {
+        final type = node['@type'];
+        bool isProduct = false;
+        if (type is String && type.toLowerCase() == 'product') isProduct = true;
+        if (type is List) {
+          for (final t in type) {
+            if (t is String && t.toLowerCase() == 'product') {
+              isProduct = true;
+              break;
             }
           }
         }
+        if (isProduct) return Map<String, dynamic>.from(node);
+
+        if (node['@graph'] is List) {
+          for (final child in node['@graph']) {
+            final r = walk(child);
+            if (r != null) return r;
+          }
+        }
+        for (final key in const ['mainEntity', 'itemListElement', 'subjectOf']) {
+          if (node[key] != null) {
+            final r = walk(node[key]);
+            if (r != null) return r;
+          }
+        }
+      } else if (node is List) {
+        for (final child in node) {
+          final r = walk(child);
+          if (r != null) return r;
+        }
       }
-    } catch (e) {
-      // JSON parsing failed, continue
+      return null;
+    }
+
+    try {
+      final scripts = document.querySelectorAll('script[type="application/ld+json"]');
+      for (var script in scripts) {
+        final jsonText = script.text.trim();
+        if (jsonText.isEmpty) continue;
+        try {
+          final jsonData = jsonDecode(jsonText);
+          final found = walk(jsonData);
+          if (found != null) return found;
+        } catch (_) {
+          // ignore malformed LD+JSON blocks
+        }
+      }
+    } catch (_) {
+      // ignore
     }
     return null;
   }
@@ -359,26 +605,41 @@ class WebScraperService {
     for (var selector in imageSelectors) {
       final images = document.querySelectorAll(selector);
       for (var img in images) {
-        final src = img.attributes['src'] ?? 
-                    img.attributes['data-src'] ?? 
-                    img.attributes['data-lazy'] ??
-                    img.attributes['data-original'];
-        if (src != null && 
-            src.isNotEmpty &&
-            !src.contains('placeholder') && 
-            !src.contains('loading') &&
-            !src.contains('blank') &&
-            !src.endsWith('.svg')) {
-          final absoluteUrl = _makeAbsoluteUrl(src, baseUrl);
-          if (!data['images'].contains(absoluteUrl) && 
-              (absoluteUrl.endsWith('.jpg') || 
-               absoluteUrl.endsWith('.jpeg') || 
-               absoluteUrl.endsWith('.png') || 
-               absoluteUrl.endsWith('.webp'))) {
-            data['images'].add(absoluteUrl);
-            if (data['images'].length >= 5) break; // Limit to 5 images
-          }
+        String? src = img.attributes['src'] ??
+            img.attributes['data-src'] ??
+            img.attributes['data-lazy'] ??
+            img.attributes['data-original'] ??
+            img.attributes['data-zoom-image'];
+        // <source srcset="url1 1x, url2 2x"> or plain srcset
+        src ??= img.attributes['srcset']?.split(',').first.trim().split(' ').first;
+
+        if (src == null || src.isEmpty) continue;
+        if (src.startsWith('data:')) continue;
+        final lower = src.toLowerCase();
+        if (lower.contains('placeholder') ||
+            lower.contains('loading') ||
+            lower.contains('blank') ||
+            lower.endsWith('.svg') ||
+            lower.endsWith('.gif')) {
+          continue;
         }
+
+        final absoluteUrl = _makeAbsoluteUrl(src, baseUrl);
+        // Accept image-like URLs: explicit extension OR path/query hints
+        final pathOnly = absoluteUrl.split('?').first.toLowerCase();
+        final looksLikeImage = pathOnly.endsWith('.jpg') ||
+            pathOnly.endsWith('.jpeg') ||
+            pathOnly.endsWith('.png') ||
+            pathOnly.endsWith('.webp') ||
+            pathOnly.endsWith('.avif') ||
+            lower.contains('/image') ||
+            lower.contains('/photos/') ||
+            lower.contains('/product') ||
+            lower.contains('cdn');
+        if (!looksLikeImage) continue;
+        if (data['images'].contains(absoluteUrl)) continue;
+        data['images'].add(absoluteUrl);
+        if (data['images'].length >= 6) break;
       }
       if (data['images'].isNotEmpty) break;
     }

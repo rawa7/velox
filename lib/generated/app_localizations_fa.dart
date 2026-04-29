@@ -105,6 +105,33 @@ class AppLocalizationsFa extends AppLocalizations {
   String get pasteProductLink => 'لینکی بەرهەم لێرە بنووسە';
 
   @override
+  String get productLinkHelper =>
+      'هەر سەبێتێکی SHEIN یان بەرهەمێکی تاک لە هەر ماڵپەڕێک زیاد بکە. لینکەکە بنووسە، پاشان داگرتن لەسەر «دەرهێنان لە لینک».';
+
+  @override
+  String get dataExtraction => 'دەرهێنانی داتاکان';
+
+  @override
+  String get extractFromLink => 'دەرهێنان لە لینک';
+
+  @override
+  String get extractingFromLink => 'دەرهێنان...';
+
+  @override
+  String get productDetails => 'وردەکاری بەرهەم';
+
+  @override
+  String get productDetailsExtracted => 'وردەکاری بەرهەم دەرهێنرا';
+
+  @override
+  String cartItemsExtracted(int count) {
+    return '$count بابەت لە سەبێت دەرهێنران';
+  }
+
+  @override
+  String get sizeHintExample => 'وەک M، L، XL، یەک قەبارە...';
+
+  @override
   String get getDataFromLink => 'وەرگرتنی زانیاری لە لینک';
 
   @override
@@ -167,6 +194,9 @@ class AppLocalizationsFa extends AppLocalizations {
 
   @override
   String get color => 'ڕەنگ';
+
+  @override
+  String get itemCodeOrName => 'کۆدی بەرهەم / ناو';
 
   @override
   String get size => 'قەبارە';
@@ -256,6 +286,9 @@ class AppLocalizationsFa extends AppLocalizations {
   String get tax => 'باج';
 
   @override
+  String get taxWithPercentLabel => 'باج (٪٦)';
+
+  @override
   String get totalPrice => 'نرخی کۆی گشتی';
 
   @override
@@ -280,7 +313,7 @@ class AppLocalizationsFa extends AppLocalizations {
   String get rejectOrder => 'ڕەتکردنەوەی داواکاری';
 
   @override
-  String get confirmAccept => 'دڵنیاکردنەوەی قبوڵکردن';
+  String get confirmAccept => 'دڵنیاکردنەوەی داواکاری';
 
   @override
   String get confirmApprove => 'دڵنیاکردنەوەی پەسەندکردن';
@@ -454,6 +487,10 @@ class AppLocalizationsFa extends AppLocalizations {
   String get contactSupport => 'پەیوەندی بە پشتگیری';
 
   @override
+  String get profileChangeDetailsHint =>
+      'تکایە بۆ گۆڕینی زانیارییەکان پەیوەندی بە پشتگیری بکە.';
+
+  @override
   String get rateOurApp => 'هەڵسەنگاندنی ئەپەکەمان';
 
   @override
@@ -497,6 +534,9 @@ class AppLocalizationsFa extends AppLocalizations {
       'بۆ یارمەتی، تکایە پەیوەندی بە تیمی پشتگیریمان بکە.\n\nمۆبایل: +964 750 774 6088\nئیمەیڵ: support@veloxshipping.com';
 
   @override
+  String get chatOnWhatsApp => 'نامە لە واتسئاپ';
+
+  @override
   String get ok => 'باشە';
 
   @override
@@ -521,6 +561,20 @@ class AppLocalizationsFa extends AppLocalizations {
 
   @override
   String get totalItems => 'کۆی بابەتەکان';
+
+  @override
+  String orderItemsSectionTitle(int count) {
+    return '$count دانە';
+  }
+
+  @override
+  String get outOfStock => 'ئەم بەرهەمە لە کۆگا نییە.';
+
+  @override
+  String get exchangeRateItemToUsd => 'نرخی گۆڕین (درای بەرهەم → دۆلار)';
+
+  @override
+  String get exchangeRateUsdToIqd => 'نرخی گۆڕین (دۆلار → دینار)';
 
   @override
   String get active => 'چالاک';
@@ -639,6 +693,9 @@ class AppLocalizationsFa extends AppLocalizations {
   String get continueAsGuest => 'وەک میوان بەردەوام بە';
 
   @override
+  String get skipAccount => 'تێپەڕاندنی هەژمار';
+
+  @override
   String get signIn => 'چوونەژوورەوە';
 
   @override
@@ -646,6 +703,15 @@ class AppLocalizationsFa extends AppLocalizations {
 
   @override
   String get fullName => 'ناوی تەواو';
+
+  @override
+  String get city => 'شار';
+
+  @override
+  String get selectCity => 'شارەکەت هەڵبژێرە';
+
+  @override
+  String get pleaseSelectCity => 'تکایە شارەکەت هەڵبژێرە';
 
   @override
   String get enterYourFullName => 'ناوی تەواوت بنووسە';
@@ -756,4 +822,96 @@ class AppLocalizationsFa extends AppLocalizations {
   @override
   String get passwordTip2 =>
       'وشەی نهێنیەکی بەهێز بەکاربهێنە بۆ پارێزگاریکردنی هەژمارەکەت';
+
+  @override
+  String get pendingPrice => 'نرخی چاوەڕوان';
+
+  @override
+  String get notifications => 'زەنگی ئاگادارکردنەوە';
+
+  @override
+  String get lightMode => 'دۆخی ڕووناک';
+
+  @override
+  String get darkMode => 'دۆخی تاریک';
+
+  @override
+  String get welcomeToVelox => 'بەخێربێیت بۆ ڤێلۆکس';
+
+  @override
+  String get haveAccount => 'هەژمارت هەیە؟';
+
+  @override
+  String get iHaveAnAccount => 'بەڵێ، بچۆ ژوورەوە';
+
+  @override
+  String get createNewAccount => 'هەژماری نوێ دروستبکە';
+
+  @override
+  String get enterPhoneToRegister => 'ژمارەی مۆبایلەکەت بنووسە بۆ دەستپێکردن';
+
+  @override
+  String get sendVerificationCode => 'کۆدی پشتڕاستکردنەوە بنێرە';
+
+  @override
+  String get verifyYourPhone => 'ژمارەی مۆبایلەکەت پشتڕاست بکەرەوە';
+
+  @override
+  String codeSentTo(String phone) {
+    return 'کۆد نێردرا بۆ $phone';
+  }
+
+  @override
+  String get verificationCode => 'کۆدی پشتڕاستکردنەوە';
+
+  @override
+  String get enterVerificationCode => 'کۆدی ٦ ژمارەیی بنووسە';
+
+  @override
+  String get verify => 'پشتڕاستکردنەوە';
+
+  @override
+  String get resendCode => 'کۆد دووبارە بنێرە';
+
+  @override
+  String resendIn(int seconds) {
+    return 'دووبارە بنێرە لە $seconds چرکە';
+  }
+
+  @override
+  String get completeYourProfile => 'پرۆفایلەکەت تەواو بکە';
+
+  @override
+  String get almostThere => 'نزیکایتی! زانیاریەکانت بنووسە';
+
+  @override
+  String get otpSentSuccess => 'کۆدی پشتڕاستکردنەوە بە واتساپ نێردرا';
+
+  @override
+  String get invalidOtpCode => 'کۆدی هەڵە. دووبارە هەوڵبدەرەوە.';
+
+  @override
+  String get phoneAlreadyRegistered =>
+      'ژمارەی مۆبایل پێشتر تۆمار کراوە. تکایە بچۆ ژوورەوە.';
+
+  @override
+  String get step1of3 => 'هەنگاو ١ لە ٣';
+
+  @override
+  String get step2of3 => 'هەنگاو ٢ لە ٣';
+
+  @override
+  String get step3of3 => 'هەنگاو ٣ لە ٣';
+
+  @override
+  String get whatsappCode => 'کۆدێک لە واتساپ دەگاتێت';
+
+  @override
+  String get back => 'گەڕانەوە';
+
+  @override
+  String get myQrCode => 'کۆدی من';
+
+  @override
+  String get customerCodeUnavailable => 'کۆد بەردەست نییە';
 }

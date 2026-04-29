@@ -61,7 +61,7 @@ while ($row = mysqli_fetch_assoc($result)) {
         'id' => $row['id'],
         'name' => $row['name'],
         'image_id' => $row['image_id'],
-        'image_url' => $row['web_path'] ? 'https://veloxshoppingiq.com' . $row['web_path'] : null,
+        'image_url' => $row['web_path'] ? 'http://veloxshoppingiq.com' . $row['web_path'] : null,
         'filename' => $row['filename']
     ];
 }

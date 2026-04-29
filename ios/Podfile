@@ -39,5 +39,10 @@ end
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
+    target.build_configurations.each do |config|
+      # Generate dSYM files for all pod frameworks so App Store Connect
+      # doesn't warn about missing dSYMs (e.g. objective_c.framework).
+      config.build_settings['DEBUG_INFORMATION_FORMAT'] = 'dwarf-with-dsym'
+    end
   end
 end

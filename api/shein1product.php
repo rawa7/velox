@@ -45,19 +45,44 @@ function fetchPageContent($url) {
     return ['content' => $response, 'final_url' => $finalUrl, 'error' => null];
 }
 
+/**
+ * Try to pull a product ID out of a SHEIN share page.
+ *
+ * Returns `null` for clear failures and `'__CART_SHARE__'` as a special
+ * sentinel when the page is a cart share (multiple items). The caller should
+ * NOT fall back to scanning the page for arbitrary product IDs in that case,
+ * because the share page also shows unrelated "recommended" products whose
+ * IDs would otherwise be picked up and misrepresented as the user's item.
+ */
 function extractIdFromSharePage($url) {
     $result = fetchPageContent($url);
     if ($result['error'] || !$result['content']) return null;
     $content = $result['content'];
     $finalUrl = $result['final_url'];
+
     if (preg_match('/-p-(\d+)\.html/i', $finalUrl, $matches)) return $matches[1];
+
+    // Inspect the shareInfo blob SHEIN embeds in the HTML. It tells us whether
+    // the share is a single product or a cart. For cart shares we bail out
+    // early instead of guessing a product ID from page recommendations.
     if (preg_match('/var\s+shareInfo\s*=\s*(\{[^;]+\})\s*;?/s', $content, $matches)) {
         $shareInfo = json_decode($matches[1], true);
         if ($shareInfo && json_last_error() === JSON_ERROR_NONE) {
-            if (!empty($shareInfo['id']) && is_numeric($shareInfo['id'])) return $shareInfo['id'];
-            if (!empty($shareInfo['shareId']) && is_numeric($shareInfo['shareId'])) return $shareInfo['shareId'];
+            $isCartShare = !empty($shareInfo['cart_share']);
+            if (!empty($shareInfo['id']) && is_numeric($shareInfo['id'])) {
+                return $shareInfo['id'];
+            }
+            if (!empty($shareInfo['shareId']) && is_numeric($shareInfo['shareId'])) {
+                return $shareInfo['shareId'];
+            }
+            if ($isCartShare) {
+                // Multi-item cart share with no resolvable single product.
+                // Signal the caller instead of returning a random page ID.
+                return '__CART_SHARE__';
+            }
         }
     }
+
     if (preg_match('/-p-(\d{5,})\.html/i', $content, $matches)) return $matches[1];
     if (preg_match('/["\']id["\']\s*:\s*["\'](\d{5,})["\']/i', $content, $matches)) return $matches[1];
     return null;
@@ -78,10 +103,26 @@ function extractSheinProductId($url) {
         if (!empty($params['goodsId']) && is_numeric($params['goodsId'])) return $params['goodsId'];
     }
 
-    $isShareLink = preg_match('/api-shein\.shein\.com|sharejump|shein\.com\/h5\/share|shein\.com\/share/i', $url);
+    $isShareLink = preg_match('/api-shein\.shein\.com|sharejump|shein\.com\/h5\/share|shein\.com\/share|shein\.top/i', $url);
     if ($isShareLink) {
         $productId = extractIdFromSharePage($url);
+        if ($productId === '__CART_SHARE__') return '__CART_SHARE__';
         if ($productId) return $productId;
+
+        // Fallback: api-shein.shein.com/h5/sharejump?link=XXX often 404s
+        // server-side, but the same short code resolves via shein.top/XXX.
+        // Extract the `link` query param and retry there.
+        $qs = parse_url($url, PHP_URL_QUERY);
+        if ($qs) {
+            parse_str($qs, $p2);
+            $shortCode = $p2['link'] ?? $p2['code'] ?? $p2['share_code'] ?? null;
+            if ($shortCode && preg_match('/^[A-Za-z0-9_\-]{4,}$/', $shortCode)) {
+                $alt = 'https://shein.top/' . $shortCode;
+                $pid = extractIdFromSharePage($alt);
+                if ($pid === '__CART_SHARE__') return '__CART_SHARE__';
+                if ($pid) return $pid;
+            }
+        }
         return null;
     }
 
@@ -103,125 +144,113 @@ function extractSheinProductId($url) {
     return null;
 }
 
-/**
- * Scrape a SHEIN product page and extract name, image, goods_sn, price.
- * Uses og: meta tags and JSON blobs embedded in the page.
- */
-function scrapeSheinPage($url, $productId) {
-    $result = fetchPageContent($url);
-    if ($result['error'] || empty($result['content'])) return null;
-    $html = $result['content'];
-
-    $name    = '';
-    $image   = '';
-    $goodsSn = '';
-    $price   = '';
-
-    // Product name — og:title is most reliable
-    if (preg_match('/<meta[^>]+property=["\']og:title["\'][^>]+content=["\']([^"\']+)["\']/', $html, $m)) {
-        $name = html_entity_decode(trim(preg_replace('/\s*[\|\-]\s*SHEIN.*$/i', '', $m[1])));
-    }
-    if (!$name && preg_match('/<title>([^<]+)<\/title>/i', $html, $m)) {
-        $name = html_entity_decode(trim(preg_replace('/\s*[\|\-]\s*SHEIN.*$/i', '', $m[1])));
-    }
-
-    // Product image — og:image is fastest
-    if (preg_match('/<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']/', $html, $m)) {
-        $image = $m[1];
-    }
-    // Fallback: first ltwebstatic image URL in scripts
-    if (!$image && preg_match('/https:\/\/img\.ltwebstatic\.com\/[^\s"\']+\.jpg/i', $html, $m)) {
-        $image = $m[1];
-    }
-
-    // goods_sn — look in embedded JSON
-    if (preg_match('/["\']goods_sn["\']\s*:\s*["\']([^"\']+)["\']/', $html, $m)) {
-        $goodsSn = $m[1];
-    } elseif (preg_match('/["\']goodsSn["\']\s*:\s*["\']([^"\']+)["\']/', $html, $m)) {
-        $goodsSn = $m[1];
-    }
-
-    // Price — retailPrice or salePrice in embedded JSON
-    if (preg_match('/["\']retailPrice["\']\s*:\s*\{[^}]*["\']amount["\']\s*:\s*["\']([^"\']+)["\']/', $html, $m)) {
-        $price = preg_replace('/[^\d.]/', '', $m[1]);
-    } elseif (preg_match('/["\']salePrice["\']\s*:\s*\{[^}]*["\']amount["\']\s*:\s*["\']([^"\']+)["\']/', $html, $m)) {
-        $price = preg_replace('/[^\d.]/', '', $m[1]);
-    }
-
-    // Normalize protocol-relative image URLs
-    if (strpos($image, '//') === 0) $image = 'https:' . $image;
-    if (strpos($image, '?') !== false) $image = strtok($image, '?');
-
-    if ($name || $image) {
-        return [
-            'goods_id' => $productId,
-            'goods_sn' => $goodsSn,
-            'name'     => $name,
-            'image'    => $image,
-            'price'    => $price,
-            'source'   => 'scrape',
-        ];
-    }
-    return null;
-}
-
-function fetchSheinProduct($productId, $originalUrl = null) {
-    // ── Primary: scrape the product page directly ──────────────────────────
-    // Try the original URL first, then construct fallback URLs
-    $urlsToTry = [];
-    if ($originalUrl) $urlsToTry[] = $originalUrl;
-    $urlsToTry[] = "https://us.shein.com/p-{$productId}.html";
-    $urlsToTry[] = "https://m.shein.com/us/p-{$productId}.html";
-
-    foreach ($urlsToTry as $tryUrl) {
-        $scraped = scrapeSheinPage($tryUrl, $productId);
-        if ($scraped) {
-            return ['success' => true, 'product_id' => $productId, 'product' => $scraped];
-        }
-    }
-
-    // ── Fallback: RapidAPI ─────────────────────────────────────────────────
+function fetchSheinProduct($productId) {
     $curl = curl_init();
     curl_setopt_array($curl, [
-        CURLOPT_URL            => "https://shein-api-v1.p.rapidapi.com/api/v1/product/productDetail5/" . $productId,
+        CURLOPT_URL => "https://shein-api-v1.p.rapidapi.com/api/v1/product/productDetail5/" . $productId,
         CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT        => 30,
-        CURLOPT_CUSTOMREQUEST  => "GET",
-        CURLOPT_HTTPHEADER     => [
-            "currency: usd", "lang: en",
+        CURLOPT_ENCODING => "",
+        CURLOPT_MAXREDIRS => 10,
+        CURLOPT_TIMEOUT => 30,
+        CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+        CURLOPT_CUSTOMREQUEST => "GET",
+        CURLOPT_HTTPHEADER => [
+            "currency: usd",
+            "lang: en",
             "x-rapidapi-host: shein-api-v1.p.rapidapi.com",
-            "x-rapidapi-key: 2a7b7d7ff7msh0fc41abd991d525p18c937jsn22528fc5c264",
+            "x-rapidapi-key: 2a7b7d7ff7msh0fc41abd991d525p18c937jsn22528fc5c264"
         ],
     ]);
     $response = curl_exec($curl);
+    $err = curl_error($curl);
     $httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
     curl_close($curl);
-
-    if (empty($response)) return ['success' => false, 'error' => 'Could not fetch product data'];
+    if ($err) return ['success' => false, 'error' => 'cURL Error: ' . $err];
+    if (empty($response)) return ['success' => false, 'error' => 'Empty response', 'http_code' => $httpCode];
     $data = json_decode($response, true);
-    if (!$data || $httpCode !== 200) return ['success' => false, 'error' => 'API HTTP ' . $httpCode];
+    if (json_last_error() !== JSON_ERROR_NONE) return ['success' => false, 'error' => 'Invalid JSON', 'http_code' => $httpCode];
+    if ($httpCode !== 200) return ['success' => false, 'error' => 'HTTP ' . $httpCode, 'response' => $data];
 
-    $detail = $data['info']['detail'] ?? $data['data']['detail'] ?? $data['detail']
-           ?? $data['info']          ?? $data['data']            ?? $data;
+    // Locate the detail object — try every known response structure.
+    // The RapidAPI response now returns data as an indexed list:
+    //   { success: true, data: [ { detail: {...}, attrSize: [...], ... } ] }
+    // Previously it sometimes returned data/info as a direct object.
+    $detail = null;
 
-    $name    = $detail['goods_name'] ?? $detail['goodsName'] ?? $detail['name']  ?? '';
-    $goodsSn = $detail['goods_sn']   ?? $detail['goodsSn']   ?? '';
-    $image   = $detail['goods_img']  ?? $detail['main_image'] ?? $detail['goodsImg'] ?? '';
-    if (strpos($image, '//') === 0) $image = 'https:' . $image;
-    if (strpos($image, '?')  !== false) $image = strtok($image, '?');
+    // If data/info is an indexed list, unwrap the first element first.
+    $unwrap = function($node) {
+        if (is_array($node) && !empty($node)
+            && array_keys($node) === range(0, count($node) - 1)) {
+            return $node[0];
+        }
+        return $node;
+    };
+    $root    = $data;
+    $dataNode = isset($data['data']) ? $unwrap($data['data']) : null;
+    $infoNode = isset($data['info']) ? $unwrap($data['info']) : null;
 
-    $price = '';
-    foreach (['retailPrice', 'salePrice'] as $pk) {
-        if (!isset($detail[$pk])) continue;
-        $raw = is_array($detail[$pk]) ? ($detail[$pk]['usdAmount'] ?? $detail[$pk]['amount'] ?? '') : (string)$detail[$pk];
-        $raw = preg_replace('/[^\d.]/', '', $raw);
-        if ($raw) { $price = $raw; break; }
+    if (is_array($infoNode) && isset($infoNode['detail']) && is_array($infoNode['detail'])) {
+        $detail = $infoNode['detail'];
+    } elseif (is_array($dataNode) && isset($dataNode['detail']) && is_array($dataNode['detail'])) {
+        $detail = $dataNode['detail'];
+    } elseif (isset($data['detail']) && is_array($data['detail'])) {
+        $detail = $data['detail'];
+    } elseif (is_array($infoNode) && !empty($infoNode)) {
+        $detail = $infoNode;
+    } elseif (is_array($dataNode) && !empty($dataNode)) {
+        $detail = $dataNode;
+    } else {
+        // Last resort: use root of response
+        $detail = $data;
     }
+
+    // Read fields directly from $detail only (no recursive search to avoid
+    // picking up data from recommendation/related-product arrays)
+    $name    = $detail['goods_name'] ?? $detail['goodsName'] ?? $detail['name']  ?? $detail['title'] ?? '';
+    $goodsSn = $detail['goods_sn']   ?? $detail['goodsSn']   ?? $detail['sn']    ?? $detail['sku']   ?? '';
+    $goodsId = $detail['goods_id']   ?? $detail['goodsId']   ?? $productId;
+    $image   = $detail['goods_img']  ?? $detail['main_image'] ?? $detail['goodsImg'] ?? $detail['img'] ?? '';
+
+    // Normalize protocol-relative URLs (//img.ltwebstatic.com/...) to https
+    if (is_string($image) && strpos($image, '//') === 0) {
+        $image = 'https:' . $image;
+    }
+    // Strip query params that can break CDN access
+    if (is_string($image) && strpos($image, '?') !== false) {
+        $image = strtok($image, '?');
+    }
+
+    // Price — only one level deep
+    $price = '';
+    foreach (['retailPrice', 'salePrice', 'price'] as $priceKey) {
+        if (!isset($detail[$priceKey])) continue;
+        $pNode = $detail[$priceKey];
+        if (is_array($pNode)) {
+            $raw = $pNode['usdAmount'] ?? $pNode['amount'] ?? $pNode['amountWithSymbol'] ?? '';
+        } else {
+            $raw = (string)$pNode;
+        }
+        $raw = preg_replace('/[^\d.]/', '', $raw);
+        if ($raw !== '') { $price = $raw; break; }
+    }
+
+    $product = [
+        'goods_id' => $goodsId,
+        'goods_sn' => $goodsSn ?? '',
+        'name'     => $name    ?? '',
+        'image'    => $image   ?? '',
+        'price'    => $price,
+    ];
 
     return [
         'success'    => true,
         'product_id' => $productId,
-        'product'    => ['goods_id' => $productId, 'goods_sn' => $goodsSn, 'name' => $name, 'image' => $image, 'price' => $price, 'source' => 'rapidapi'],
+        'product'    => $product,
+        '_debug' => [
+            'queried_product_id' => $productId,
+            'top_keys'           => array_keys($data),
+            'detail_keys'        => is_array($detail) ? array_keys($detail) : null,
+        ],
     ];
 }
 
@@ -245,6 +274,21 @@ if (empty($sheinUrl)) {
 
 $productId = extractSheinProductId($sheinUrl);
 
+if ($productId === '__CART_SHARE__') {
+    // The link points to a multi-item cart share, not a single product.
+    // Refuse to guess a product ID here — the Flutter app uses
+    // `is_cart_share` to show a cart-specific hint instead.
+    ob_end_clean();
+    http_response_code(400);
+    echo json_encode([
+        'success'       => false,
+        'is_cart_share' => true,
+        'error'         => 'This link is a SHEIN cart share with multiple items. Please add items manually or paste individual product URLs.',
+        'url'           => $sheinUrl,
+    ]);
+    exit();
+}
+
 if (!$productId) {
     ob_end_clean();
     http_response_code(400);
@@ -252,7 +296,7 @@ if (!$productId) {
     exit();
 }
 
-$result = fetchSheinProduct($productId, $sheinUrl);
+$result = fetchSheinProduct($productId);
 ob_end_clean();
 
 if (!$result['success']) {

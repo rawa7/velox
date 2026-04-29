@@ -55,7 +55,11 @@ try {
     
     $order_data = mysqli_fetch_assoc($verify_result);
     $current_status = $order_data['status'];
-    $order_total = floatval($order_data['totalprice'] ?? $order_data['itemprice'] ?? 0);
+    // Capacity checks use IQD (same as profile / orders list)
+    $order_total = floatval($order_data['total_dinar'] ?? 0);
+    if ($order_total <= 0) {
+        $order_total = floatval($order_data['totalprice'] ?? $order_data['itemprice'] ?? 0);
+    }
     
     // Validate order total
     if ($order_total <= 0) {
@@ -93,16 +97,16 @@ try {
         throw new Exception("Account configuration error. Please contact support.");
     }
     
-    // Calculate balance
+    // Calculate balance (IQD)
     $balance_query = "SELECT 
                     (SELECT COALESCE(SUM(amount), 0) FROM buyerpay WHERE buyerid = $customer_id) -
-                    (SELECT COALESCE(SUM(totalprice), 0) FROM items WHERE customer_id = $customer_id AND paymentstatus = 1) 
+                    (SELECT COALESCE(SUM(total_dinar), 0) FROM items WHERE customer_id = $customer_id AND paymentstatus = 1) 
                     AS available_balance";
     $balance_result = query($balance_query);
     $current_balance = floatval(mysqli_fetch_assoc($balance_result)['available_balance'] ?? 0);
     
-    // Calculate unpaid orders
-    $approved_unpaid_query = "SELECT COALESCE(SUM(totalprice), 0) as approved_unpaid 
+    // Calculate unpaid orders (IQD)
+    $approved_unpaid_query = "SELECT COALESCE(SUM(total_dinar), 0) as approved_unpaid 
                             FROM items 
                             WHERE customer_id = $customer_id 
                             AND status IN (3, 4, -1, 16, 17, 19) 
@@ -121,11 +125,11 @@ try {
     // Main balance validation
     if ($order_total > $available_capacity) {
         $detailed_error = "INSUFFICIENT FUNDS - Order cannot be accepted.\n";
-        $detailed_error .= "Order Total: $" . number_format($order_total, 2) . "\n";
-        $detailed_error .= "Available Capacity: $" . number_format($available_capacity, 2) . "\n";
-        $detailed_error .= "Current Balance: $" . number_format($current_balance, 2) . "\n";
-        $detailed_error .= "Account Type: " . $usertype_name . " (Debt Limit: $" . number_format($debt_limit, 2) . ")\n";
-        $detailed_error .= "Unpaid Orders: $" . number_format($approved_unpaid_total, 2);
+        $detailed_error .= "Order Total: " . number_format($order_total, 0) . " IQD\n";
+        $detailed_error .= "Available Capacity: " . number_format($available_capacity, 0) . " IQD\n";
+        $detailed_error .= "Current Balance: " . number_format($current_balance, 0) . " IQD\n";
+        $detailed_error .= "Account Type: " . $usertype_name . " (Debt Limit: " . number_format($debt_limit, 0) . " IQD)\n";
+        $detailed_error .= "Unpaid Orders: " . number_format($approved_unpaid_total, 0) . " IQD";
         
         throw new Exception($detailed_error);
     }
@@ -133,7 +137,7 @@ try {
     // Paranoid balance check
     $paranoid_balance_check = "SELECT 
                              (SELECT COALESCE(SUM(amount), 0) FROM buyerpay WHERE buyerid = $customer_id) as total_payments,
-                             (SELECT COALESCE(SUM(totalprice), 0) FROM items WHERE customer_id = $customer_id AND paymentstatus = 1) as total_paid_items";
+                             (SELECT COALESCE(SUM(total_dinar), 0) FROM items WHERE customer_id = $customer_id AND paymentstatus = 1) as total_paid_items";
     $paranoid_result = query($paranoid_balance_check);
     $paranoid_data = mysqli_fetch_assoc($paranoid_result);
     $paranoid_balance = floatval($paranoid_data['total_payments']) - floatval($paranoid_data['total_paid_items']);
@@ -148,12 +152,12 @@ try {
     }
     
     // Security check: prevent severely indebted customers
-    if ($current_balance < -1000 && $order_total > 50) {
+    if ($current_balance < -1000 && $order_total > 50000) {
         throw new Exception("Account requires payment before new orders can be approved. Please contact support.");
     }
     
-    // Large order check
-    if ($order_total > 10000) {
+    // Large order check (amounts in IQD)
+    if ($order_total > 50000000) {
         throw new Exception("Large orders require manual approval by admin. Please contact support.");
     }
     
@@ -189,7 +193,7 @@ try {
     http_response_code(200);
     echo json_encode([
         'success' => true,
-        'message' => "Order #$order_id has been accepted and moved to approved status! Payment of $" . number_format($order_total, 2) . " will be processed when you pick up the item at delivery.",
+        'message' => "Order #$order_id has been accepted and moved to approved status! Payment of " . number_format($order_total, 0) . " IQD will be processed when you pick up the item at delivery.",
         'data' => [
             'order_id' => $order_id,
             'new_status' => $approved_status,

@@ -9,6 +9,7 @@ import '../models/website_model.dart';
 import '../models/banner_model.dart';
 import '../models/shop_item_model.dart';
 import '../generated/app_localizations.dart';
+import '../constants/currency.dart';
 import 'add_order_screen.dart';
 import 'my_orders_screen.dart';
 import 'website_view_screen.dart';
@@ -16,11 +17,19 @@ import 'notifications_screen.dart';
 import 'product_detail_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key, this.onNavigateToNewOrder});
+  const HomeScreen({
+    super.key,
+    this.onNavigateToNewOrder,
+    this.silverExperience = false,
+  });
 
   /// When set (e.g. from MainNavigation), tapping "New Order" switches to the
   /// New Order tab instead of pushing a route. Null for Silver accounts.
   final VoidCallback? onNavigateToNewOrder;
+
+  /// When true and there is no logged-in user, show silver-style home (shop
+  /// grid, no external websites section) — used for guest "skip account".
+  final bool silverExperience;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -37,7 +46,8 @@ class _HomeScreenState extends State<HomeScreen> {
   final PageController _bannerPageController = PageController();
   Timer? _bannerTimer;
 
-  bool get _isSilver => _user?.isSilverAccount ?? false;
+  bool get _isSilver =>
+      _user?.isSilverAccount ?? widget.silverExperience;
 
   @override
   void initState() {
@@ -88,11 +98,15 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       }
 
-      // Banners for everyone
-      final bannersResult = await ApiService.getBanners(user?.id.toString() ?? '');
-      if (bannersResult['success'] == true) {
-        final bannersList = bannersResult['banners'] as List;
-        _banners = bannersList.map((b) => BannerItem.fromJson(b)).toList();
+      // Promotional banners: non-silver only (silver sees app logo in banner area only).
+      if (!_isSilver) {
+        final bannersResult = await ApiService.getBanners(user?.id.toString() ?? '');
+        if (bannersResult['success'] == true) {
+          final bannersList = bannersResult['banners'] as List;
+          _banners = bannersList.map((b) => BannerItem.fromJson(b)).toList();
+        }
+      } else {
+        _banners = [];
       }
 
       if (user != null) {
@@ -148,13 +162,20 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Map<String, List<Website>> get _websitesByCountry {
+    // Sort all websites by orderId first
+    final sorted = [..._websites]..sort((a, b) => a.orderId.compareTo(b.orderId));
+
     final map = <String, List<Website>>{};
-    for (final w in _websites) {
+    for (final w in sorted) {
       final key = w.country.trim().isEmpty ? 'Other' : w.country;
       map.putIfAbsent(key, () => []).add(w);
     }
-    final sorted = map.keys.toList()..sort((a, b) => a.compareTo(b));
-    return Map.fromEntries(sorted.map((k) => MapEntry(k, map[k]!)));
+
+    // Order countries by the smallest orderId within each group
+    final countries = map.keys.toList()
+      ..sort((a, b) => map[a]!.first.orderId.compareTo(map[b]!.first.orderId));
+
+    return Map.fromEntries(countries.map((k) => MapEntry(k, map[k]!)));
   }
 
   @override
@@ -175,60 +196,39 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                   child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
-                        children: [
-                          Container(
-                            width: 44,
-                            height: 44,
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  AppColors.primary.withOpacity(0.3),
-                                  AppColors.secondary.withOpacity(0.2),
-                                ],
-                              ),
-                              borderRadius: BorderRadius.circular(12),
+                      Expanded(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Image.asset(
+                              'assets/logo.png',
+                              width: 78,
+                              height: 78,
+                              fit: BoxFit.contain,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  const Icon(Icons.local_shipping,
+                                      color: AppColors.primary, size: 78),
                             ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: Image.asset(
-                                'assets/logo.png',
-                                fit: BoxFit.contain,
-                                errorBuilder: (context, error, stackTrace) =>
-                                    const Icon(Icons.local_shipping, color: AppColors.primary),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              ShaderMask(
-                                shaderCallback: (bounds) => const LinearGradient(
-                                  colors: AppColors.primaryGradient,
-                                ).createShader(bounds),
-                                child: const Text(
-                                  'Velox',
-                                  style: TextStyle(
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
-                              if (_user != null)
-                                Text(
+                            if (_user != null) ...[
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
                                   '${l10n.hello}, ${_user!.name ?? ""}',
                                   style: const TextStyle(
-                                    fontSize: 13,
+                                    fontSize: 14,
                                     color: AppColors.textSecondary,
+                                    height: 1.25,
                                   ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
+                              ),
                             ],
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                       IconButton(
                         onPressed: () async {
@@ -285,7 +285,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
 
               // ── Banners ─────────────────────────────────────────────────
-              if (_banners.isNotEmpty)
+              if (_isSilver || _banners.isNotEmpty)
                 SliverToBoxAdapter(
                   child: Container(
                     height: 160,
@@ -295,8 +295,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       onPageChanged: (index) {
                         setState(() => _currentBannerIndex = index);
                       },
-                      itemCount: _banners.length,
+                      itemCount: _isSilver ? 1 : _banners.length,
                       itemBuilder: (context, index) {
+                        if (_isSilver) {
+                          return _buildSilverLogoBannerSlide(context);
+                        }
                         final banner = _banners[index];
                         return GestureDetector(
                           onTap: () {
@@ -346,18 +349,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                     )
                                   else
                                     _bannerPlaceholder(context),
-                                  Container(
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        begin: Alignment.topCenter,
-                                        end: Alignment.bottomCenter,
-                                        colors: [
-                                          Colors.transparent,
-                                          Colors.black.withOpacity(0.25),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
                                 ],
                               ),
                             ),
@@ -369,7 +360,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
 
               // Banner dots
-              if (_banners.length > 1)
+              if (!_isSilver && _banners.length > 1)
                 SliverToBoxAdapter(
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -403,7 +394,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             context: context,
                             icon: Icons.add_shopping_cart,
                             label: l10n.newOrder,
-                            gradient: AppColors.primaryGradient,
+                            iconColor: AppColors.primary,
                             onTap: _navigateToAddOrder,
                           ),
                         ),
@@ -562,25 +553,40 @@ class _HomeScreenState extends State<HomeScreen> {
                     return [
                       SliverToBoxAdapter(
                         child: Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-                          child: Text(
-                            country,
-                            style: TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w600,
-                              color: context.textPrimaryColor,
-                            ),
+                          padding: const EdgeInsets.fromLTRB(20, 12, 20, 6),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 4,
+                                height: 20,
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary,
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Text(
+                                country.toUpperCase(),
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: context.textPrimaryColor,
+                                  letterSpacing: 0.8,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
                       SliverPadding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
                         sliver: SliverGrid(
                           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                             crossAxisCount: 3,
-                            childAspectRatio: 0.85,
-                            crossAxisSpacing: 12,
-                            mainAxisSpacing: 12,
+                            // Wider vs height → shorter rows (less vertical space per site)
+                            childAspectRatio: 1.95,
+                            crossAxisSpacing: 10,
+                            mainAxisSpacing: 8,
                           ),
                           delegate: SliverChildBuilderDelegate(
                             (ctx, index) => _buildWebsiteCard(ctx, list[index]),
@@ -656,6 +662,41 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  /// Silver accounts: promotional images hidden — logo only on the same gradient shell as the carousel.
+  Widget _buildSilverLogoBannerSlide(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 4),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        gradient: LinearGradient(
+          colors: [
+            AppColors.primary.withOpacity(0.8),
+            AppColors.secondary.withOpacity(0.6),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          child: Center(
+            child: Image.asset(
+              'assets/logo.png',
+              fit: BoxFit.contain,
+              errorBuilder: (_, __, ___) => Icon(
+                Icons.local_shipping_rounded,
+                size: 72,
+                color: Colors.white.withOpacity(0.9),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _bannerPlaceholder(BuildContext context) {
     return Container(
       color: context.surfaceColor,
@@ -673,52 +714,45 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildWebsiteCard(BuildContext context, Website website) {
+    final hasImage = website.imageUrl != null && website.imageUrl!.isNotEmpty;
     return GestureDetector(
       onTap: () => _openWebsite(website),
       child: Container(
         decoration: BoxDecoration(
-          color: context.surfaceColor,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: context.borderColor),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: website.imageUrl != null && website.imageUrl!.isNotEmpty
-                  ? ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Image.network(
-                        website.imageUrl!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) =>
-                            const Icon(Icons.language, color: AppColors.primary),
-                      ),
-                    )
-                  : const Icon(Icons.language, color: AppColors.primary),
-            ),
-            const SizedBox(height: 10),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Text(
-                website.name,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: context.textPrimaryColor,
-                ),
-                maxLines: 2,
-                textAlign: TextAlign.center,
-                overflow: TextOverflow.ellipsis,
-              ),
+          color: context.homeWebsiteTileBackground,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(context.isDark ? 0.08 : 0.07),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
             ),
           ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.all(8),
+            child: hasImage
+                ? Image.network(
+                    website.imageUrl!,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => Center(
+                      child: Icon(
+                        Icons.language,
+                        color: Colors.grey.shade600,
+                        size: 28,
+                      ),
+                    ),
+                  )
+                : Center(
+                    child: Icon(
+                      Icons.language,
+                      color: Colors.grey.shade600,
+                      size: 28,
+                    ),
+                  ),
+          ),
         ),
       ),
     );
@@ -781,7 +815,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         Flexible(
                           child: Text(
                             item.price > 0
-                                ? '\$${item.price.toStringAsFixed(0)}'
+                                ? AppCurrency.format(item.price, context)
                                 : '',
                             style: const TextStyle(
                               fontSize: 14,

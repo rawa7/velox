@@ -56,15 +56,15 @@ HOW TO USE:
 ═══════════
 
 ADMIN PANEL (Web Interface):
-→ https://veloxshoppingiq.com/api/notification_panel.php
+→ http://veloxshoppingiq.com/api/notification_panel.php
 
 FLUTTER API:
-→ GET: https://veloxshoppingiq.com/api/notifications.php?customer_id=X
+→ GET: http://veloxshoppingiq.com/api/notifications.php?customer_id=X
 → PUT: Mark as read
 → POST: Create notification
 
 SEND BULK NOTIFICATIONS:
-→ curl -X POST https://veloxshoppingiq.com/api/notification_center.php \
+→ curl -X POST http://veloxshoppingiq.com/api/notification_center.php \
     -H "Content-Type: application/json" \
     -d '{"action":"notify_by_status","status_id":2}'
 

@@ -32,6 +32,21 @@
   "placeOrder": "Place Order",
   "productLink": "Product Link",
   "pasteProductLink": "Paste product link here",
+  "productLinkHelper": "Add any SHEIN cart or individual item from any website. Paste the link, then tap «Extract from link».",
+  "dataExtraction": "Data extraction",
+  "extractFromLink": "Extract from link",
+  "extractingFromLink": "Extracting...",
+  "productDetails": "Product details",
+  "productDetailsExtracted": "Product details extracted",
+  "cartItemsExtracted": "{count} cart items extracted",
+  "@cartItemsExtracted": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sizeHintExample": "e.g. M, L, XL, One Size...",
   "getDataFromLink": "Get Data From Link",
   "fetchingDetails": "Fetching product details...",
   "selectDataEntryMode": "Select Data Entry Mode",
@@ -53,6 +68,7 @@
   "currency": "Currency",
   "selectCurrency": "Select Currency",
   "color": "Color",
+  "itemCodeOrName": "Item code/name",
   "size": "Size",
   "selectSize": "Select Size",
   "quantity": "Quantity",
@@ -82,6 +98,7 @@
   "cargo": "Cargo",
   "commission": "Commission",
   "tax": "Tax",
+  "taxWithPercentLabel": "Tax (6%)",
   "totalPrice": "Total Price",
   "status": "Status",
   "paymentStatus": "Payment Status",
@@ -90,7 +107,7 @@
   "reorder": "Reorder",
   "acceptOrder": "Accept Order",
   "rejectOrder": "Reject Order",
-  "confirmAccept": "Confirm Accept",
+  "confirmAccept": "Order Confirmation",
   "confirmApprove": "Confirm Approve",
   "confirmReject": "Confirm Reject",
   "areYouSureAccept": "Are you sure you want to accept this order?",
@@ -148,6 +165,7 @@
   "sort": "Sort",
   "refresh": "Refresh",
   "contactSupport": "Contact Support",
+  "profileChangeDetailsHint": "Please contact support to change details.",
   "rateOurApp": "Rate our app",
   "areYouSureLogout": "Are you sure you want to logout?",
   "logoutConfirm": "Logout Confirmation",
@@ -162,6 +180,7 @@
   "ratingComingSoon": "Rating coming soon!",
   "helpAndSupport": "Help & Support",
   "helpMessage": "For assistance, please contact our support team.\n\nPhone: +964 750 774 6088\nEmail: support@veloxshipping.com",
+  "chatOnWhatsApp": "Chat on WhatsApp",
   "ok": "OK",
   "noWebsitesAvailable": "No websites available",
   "notificationsComingSoon": "Notifications coming soon!",
@@ -179,6 +198,17 @@
   },
   "processingOrder": "Processing order",
   "totalItems": "Total Items",
+  "orderItemsSectionTitle": "{count} items",
+  "@orderItemsSectionTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "outOfStock": "This item is out of stock.",
+  "exchangeRateItemToUsd": "Rate (item currency → USD)",
+  "exchangeRateUsdToIqd": "Rate (USD → IQD)",
   "active": "Active",
   "paid": "Paid",
   "excluded": "Excluded",
@@ -216,9 +246,13 @@
   "loginRequired": "You need to login to access this feature",
   "loginNow": "Login Now",
   "continueAsGuest": "Continue as Guest",
+  "skipAccount": "Skip account",
   "signIn": "Sign in",
   "signUp": "Sign Up",
   "fullName": "Full Name",
+  "city": "City",
+  "selectCity": "Select your city",
+  "pleaseSelectCity": "Please select your city",
   "enterYourFullName": "Enter your full name",
   "enterYourPhoneNumber": "Enter your phone number",
   "enterYourPassword": "Enter your password",
@@ -252,6 +286,45 @@
   "userNotFound": "User not found",
   "passwordTips": "Password Tips",
   "passwordTip1": "Password must be at least 4 characters long",
-  "passwordTip2": "Use a strong password to protect your account"
+  "passwordTip2": "Use a strong password to protect your account",
+  "pendingPrice": "Pending Price",
+  "notifications": "Notifications",
+  "lightMode": "Light Mode",
+  "darkMode": "Dark Mode",
+  "welcomeToVelox": "Welcome to Velox",
+  "haveAccount": "Do you have an account?",
+  "iHaveAnAccount": "Yes, Sign In",
+  "createNewAccount": "Create New Account",
+  "enterPhoneToRegister": "Enter your phone number to get started",
+  "sendVerificationCode": "Send Verification Code",
+  "verifyYourPhone": "Verify Your Phone",
+  "codeSentTo": "Code sent to {phone}",
+  "@codeSentTo": {
+    "placeholders": {
+      "phone": { "type": "String" }
+    }
+  },
+  "verificationCode": "Verification Code",
+  "enterVerificationCode": "Enter the 6-digit code",
+  "verify": "Verify",
+  "resendCode": "Resend Code",
+  "resendIn": "Resend in {seconds}s",
+  "@resendIn": {
+    "placeholders": {
+      "seconds": { "type": "int" }
+    }
+  },
+  "completeYourProfile": "Complete Your Profile",
+  "almostThere": "Almost there! Fill in your details",
+  "otpSentSuccess": "Verification code sent via WhatsApp",
+  "invalidOtpCode": "Invalid code. Please try again.",
+  "phoneAlreadyRegistered": "Phone already registered. Please sign in.",
+  "step1of3": "Step 1 of 3",
+  "step2of3": "Step 2 of 3",
+  "step3of3": "Step 3 of 3",
+  "whatsappCode": "You will receive a code on WhatsApp",
+  "back": "Back",
+  "myQrCode": "My code",
+  "customerCodeUnavailable": "Code not available"
 }
 
